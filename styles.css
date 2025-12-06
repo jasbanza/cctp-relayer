@@ -1,0 +1,445 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-primary: #0f1419;
+    --bg-secondary: #1a1f2e;
+    --bg-card: #1e2433;
+    --text-primary: #e7e9ea;
+    --text-secondary: #8b98a5;
+    --accent-primary: #1d9bf0;
+    --accent-success: #00ba7c;
+    --accent-warning: #ffad1f;
+    --accent-error: #f4212e;
+    --border-color: #2f3542;
+    --input-bg: #273340;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.5;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+/* Progress checklist */
+.progress-wrapper {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    padding: 0.5rem 0 0.75rem;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(to bottom, var(--bg-primary) 60%, rgba(15, 20, 25, 0.9) 90%, transparent);
+    backdrop-filter: blur(6px);
+}
+
+.progress {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+}
+
+.status-bar {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.status-label {
+    font-weight: 500;
+}
+
+.status-link {
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--accent-primary);
+    text-decoration: none;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.status-link:hover {
+    background: var(--border-color);
+}
+
+.status-hint {
+    font-style: italic;
+}
+
+.progress-step {
+    flex: 1;
+    min-width: 0;
+    padding: 0.5rem 0.75rem;
+    border-radius: 999px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.progress-step .step-index {
+    width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+}
+
+.progress-step .step-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.progress-step.is-active {
+    border-color: var(--accent-primary);
+    background: rgba(29, 155, 240, 0.15);
+    color: var(--accent-primary);
+}
+
+.progress-step.is-active .step-index {
+    border-color: var(--accent-primary);
+}
+
+.progress-step.is-done {
+    border-color: var(--accent-success);
+    background: rgba(0, 186, 124, 0.15);
+    color: var(--accent-success);
+}
+
+.progress-step.is-done .step-index {
+    border-color: var(--accent-success);
+    background: var(--accent-success);
+    color: #ffffff;
+}
+
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    /* So sticky progress bar doesn't cover section headings when scrolled into view */
+    scroll-margin-top: 96px;
+}
+
+.card.card-completed {
+    border-color: var(--accent-success);
+    box-shadow: 0 0 0 1px rgba(0, 186, 124, 0.4);
+}
+
+.card.card-completed h2 {
+    color: var(--accent-success);
+}
+
+/* Collapse everything except the heading when section is collapsed */
+.card.card-collapsed > :not(h2) {
+    display: none;
+}
+
+.card h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.card h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-row:last-child {
+    margin-bottom: 0;
+}
+
+.form-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group.full-width {
+    flex-basis: 100%;
+}
+
+label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+input, select, textarea {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(29, 155, 240, 0.2);
+}
+
+input::placeholder, textarea::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+input[readonly] {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Computed / auto-filled fields */
+input.field-computed,
+textarea.field-computed {
+    border-color: var(--accent-success);
+    box-shadow: 0 0 0 1px rgba(0, 186, 124, 0.4);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 60px;
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    font-size: 0.8rem;
+}
+
+select {
+    cursor: pointer;
+}
+
+.input-with-button {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+}
+
+.input-with-button input,
+.input-with-button textarea {
+    flex: 1;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #1a8cd8;
+}
+
+.btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--border-color);
+}
+
+.btn-success {
+    background: var(--accent-success);
+    color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #00a36c;
+}
+
+.btn-large {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1rem;
+}
+
+.btn-small {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+}
+
+.wallet-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.status-disconnected {
+    background: rgba(244, 33, 46, 0.2);
+    color: var(--accent-error);
+}
+
+.status-connected {
+    background: rgba(0, 186, 124, 0.2);
+    color: var(--accent-success);
+}
+
+.wallet-address {
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.logs {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    font-size: 0.8rem;
+    margin-bottom: 1rem;
+}
+
+.log-entry {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.log-entry:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.log-time {
+    color: var(--text-secondary);
+    margin-right: 0.5rem;
+}
+
+.log-info {
+    color: var(--accent-primary);
+}
+
+.log-success {
+    color: var(--accent-success);
+}
+
+.log-error {
+    color: var(--accent-error);
+}
+
+.log-warning {
+    color: var(--accent-warning);
+}
+
+.help-links {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.help-links a {
+    color: var(--accent-primary);
+    text-decoration: none;
+}
+
+.help-links a:hover {
+    text-decoration: underline;
+}
+
+footer {
+    margin-top: 2rem;
+    text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .form-row {
+        flex-direction: column;
+    }
+    
+    .input-with-button {
+        flex-direction: column;
+    }
+    
+    .input-with-button .btn {
+        width: 100%;
+    }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "cctp-relayer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Static CCTP relayer UI for manually relaying USDC transfers from Noble (Cosmos) to Solana using Circle CCTP and Phantom.",
+  "author": "YOUR_NAME <you@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR_GITHUB_USERNAME/cctp-relayer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YOUR_GITHUB_USERNAME/cctp-relayer/issues"
+  },
+  "homepage": "https://YOUR_GITHUB_USERNAME.github.io/cctp-relayer/",
+  "scripts": {
+    "dev": "serve -l 8000 .",
+    "serve": "serve -l 8000 .",
+    "start": "serve -l 8000 .",
+    "build": "echo \"Static app – nothing to build\""
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}
