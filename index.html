@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCTP Relayer - Noble to Solana</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CCTP Relayer</h1>
+            <p class="subtitle">Manually relay USDC transfers from Noble to Solana</p>
+        </header>
+
+        <!-- Progress Checklist + Global Status -->
+        <div class="progress-wrapper">
+            <nav class="progress" aria-label="CCTP relay progress">
+                <button type="button" class="progress-step" id="step-config">
+                    <span class="step-index">1</span>
+                    <span class="step-label">Configure</span>
+                </button>
+                <button type="button" class="progress-step" id="step-source">
+                    <span class="step-index">2</span>
+                    <span class="step-label">Source tx</span>
+                </button>
+                <button type="button" class="progress-step" id="step-attestation">
+                    <span class="step-index">3</span>
+                    <span class="step-label">Attestation</span>
+                </button>
+                <button type="button" class="progress-step" id="step-relay">
+                    <span class="step-index">4</span>
+                    <span class="step-label">Relay</span>
+                </button>
+            </nav>
+            <div class="status-bar">
+                <span class="status-label">CCTP Explorer:</span>
+                <a id="viewOnExplorer" href="#" target="_blank" class="status-link" style="display: none;">Open transaction status</a>
+                <span id="explorerHint" class="status-hint">Paste Noble tx hash to view on CCTP Explorer</span>
+            </div>
+        </div>
+
+        <!-- Chain Configuration + Solana Programs -->
+        <section id="section-config" class="card">
+            <h2>1. Configuration & Solana Programs</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="sourceChain">Source Chain</label>
+                    <select id="sourceChain">
+                        <option value="noble">Noble (Cosmos)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="destChain">Destination Chain</label>
+                    <select id="destChain">
+                        <option value="solana">Solana</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="sourceDomainId">Source Domain ID</label>
+                    <input type="number" id="sourceDomainId" value="4">
+                </div>
+                <div class="form-group">
+                    <label for="destDomainId">Destination Domain ID</label>
+                    <input type="number" id="destDomainId" value="5">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="nobleRpc">Noble LCD API</label>
+                    <input type="text" id="nobleRpc" value="https://noble-api.polkachu.com">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="solanaRpc">Solana RPC</label>
+                    <input type="text" id="solanaRpc" value="https://rpc.ankr.com/solana">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="attestationApi">Circle Attestation API</label>
+                    <input type="text" id="attestationApi" value="https://iris-api.circle.com/v1/attestations">
+                </div>
+            </div>
+
+            <hr class="section-divider">
+
+            <h3>Solana CCTP Program Addresses</h3>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="messageTransmitter">MessageTransmitter Program</label>
+                    <input type="text" id="messageTransmitter" value="CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="tokenMessengerMinter">TokenMessengerMinter Program</label>
+                    <input type="text" id="tokenMessengerMinter" value="CCTPiPYPc6AsJuwueEnWgSgucamXDZwBd53dQ11YiKX3">
+                </div>
+            </div>
+
+            <p class="help-links">
+                <strong>References:</strong>
+                <a href="https://developers.circle.com/cctp/overview" target="_blank">CCTP Docs</a> |
+                <a href="https://developers.circle.com/cctp/supported-domains" target="_blank">Domain IDs</a> |
+                <a href="https://developers.circle.com/cctp/solana-programs" target="_blank">Solana CCTP Programs</a> |
+                <a href="https://solscan.io/account/CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd" target="_blank">MessageTransmitter on Solscan</a>
+            </p>
+        </section>
+
+        <!-- Source Transaction -->
+        <section id="section-source" class="card">
+            <h2>2. Source Transaction</h2>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="nobleTxHash">Noble Transaction Hash</label>
+                    <div class="input-with-button">
+                        <input type="text" id="nobleTxHash" placeholder="Enter Noble tx hash...">
+                        <button id="fetchTxBtn" class="btn btn-secondary">Fetch TX</button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="messageBase64">Message (Base64)</label>
+                    <textarea id="messageBase64" rows="3" placeholder="Base64 encoded message from MessageSent event..."></textarea>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="messageHex">Message (Hex)</label>
+                    <div class="input-with-button">
+                        <textarea id="messageHex" rows="3" placeholder="Hex encoded message..."></textarea>
+                        <button id="convertToHexBtn" class="btn btn-secondary">Convert</button>
+                    </div>
+                </div>
+            </div>
+            <p class="help-links">
+                <strong>Manual steps:</strong>
+                <a href="https://www.mintscan.io/noble" target="_blank">Mintscan (Noble Explorer)</a> |
+                <a href="https://base64.guru/converter/decode/hex" target="_blank">Base64 to Hex Converter</a> |
+                <a href="https://noble-api.polkachu.com/cosmos/tx/v1beta1/txs/" target="_blank">Noble LCD API</a>
+            </p>
+        </section>
+
+        <!-- Attestation -->
+        <section id="section-attestation" class="card">
+            <h2>3. Attestation</h2>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="messageHash">Message Hash (keccak256)</label>
+                    <div class="input-with-button">
+                        <input type="text" id="messageHash" placeholder="0x...">
+                        <button id="computeHashBtn" class="btn btn-secondary">Compute</button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="attestationStatus">Attestation Status</label>
+                    <div class="input-with-button">
+                        <input type="text" id="attestationStatus" placeholder="pending / complete" readonly>
+                        <button id="fetchAttestationBtn" class="btn btn-secondary">Fetch</button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="attestation">Attestation Signature</label>
+                    <textarea id="attestation" rows="3" placeholder="0x... (attestation hex)"></textarea>
+                </div>
+            </div>
+            <p class="help-links">
+                <strong>Manual steps:</strong>
+                <a href="https://emn178.github.io/online-tools/keccak_256.html" target="_blank">Keccak256 Hash Tool</a> |
+                <a href="https://iris-api.circle.com/v1/attestations/" target="_blank">Circle Attestation API</a> |
+                <a href="https://developers.circle.com/cctp/message-format" target="_blank">Message Format Docs</a>
+            </p>
+        </section>
+
+        <!-- Wallet & Relay -->
+        <section id="section-relay" class="card">
+            <h2>4. Relay to Solana</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Phantom Wallet</label>
+                    <div class="wallet-status">
+                        <span id="walletStatus" class="status-badge status-disconnected">Disconnected</span>
+                        <span id="walletAddress" class="wallet-address"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <button id="connectWalletBtn" class="btn btn-primary">Connect Phantom</button>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <button id="relayBtn" class="btn btn-success btn-large" disabled>Relay to Solana</button>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="solanaTxHash">Solana Transaction</label>
+                    <div class="input-with-button">
+                        <input type="text" id="solanaTxHash" placeholder="Transaction signature..." readonly>
+                        <a id="viewOnSolscan" href="#" target="_blank" class="btn btn-secondary" style="display: none;">View on Solscan</a>
+                    </div>
+                </div>
+            </div>
+            <p class="help-links">
+                <strong>References:</strong>
+                <a href="https://phantom.app/" target="_blank">Phantom Wallet</a> |
+                <a href="https://solscan.io/" target="_blank">Solscan Explorer</a> |
+                <a href="https://github.com/circlefin/solana-cctp-contracts" target="_blank">CCTP Solana Contracts</a>
+            </p>
+        </section>
+
+        <!-- Logs -->
+        <section class="card">
+            <h2>Logs</h2>
+            <div id="logs" class="logs"></div>
+            <button id="clearLogsBtn" class="btn btn-secondary btn-small">Clear Logs</button>
+        </section>
+
+        <footer>
+            <p class="help-links">
+                <strong>More resources:</strong>
+                <a href="https://developers.circle.com/cctp/noble-cosmos-module" target="_blank">Noble CCTP Module</a> |
+                <a href="https://developers.circle.com/cctp/api-reference" target="_blank">CCTP API Reference</a> |
+                <a href="https://github.com/circlefin/noble-cctp" target="_blank">Noble CCTP GitHub</a>
+            </p>
+            <p class="help-links">
+                <strong>Support:</strong>
+                <a href="https://www.buymeacoffee.com/jasbanza" target="_blank">Buy Me a Coffee (@jasbanza)</a>
+            </p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+    <!-- Fallback to jsDelivr for ethers.js since cdn.ethers.io may not resolve -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+
