@@ -629,23 +629,62 @@ async function relayToSolana() {
         
         const transaction = new Transaction().add(instruction);
         
-        // Get recent blockhash
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+        // Get recent blockhash - try proxy first, fall back to direct RPC
+        let blockhash, lastValidBlockHeight;
+        try {
+            log('Fetching blockhash via proxy...', 'info');
+            const blockhashRes = await fetch('/api/blockhash');
+            if (blockhashRes.ok) {
+                const data = await blockhashRes.json();
+                blockhash = data.blockhash;
+                lastValidBlockHeight = data.lastValidBlockHeight;
+            } else {
+                throw new Error('Proxy returned error');
+            }
+        } catch (proxyErr) {
+            log('Proxy unavailable, using direct RPC...', 'info');
+            const result = await connection.getLatestBlockhash();
+            blockhash = result.blockhash;
+            lastValidBlockHeight = result.lastValidBlockHeight;
+        }
+        
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = walletPublicKey;
         
         log('Requesting signature from Phantom...', 'info');
         
-        // Sign and send
+        // Sign transaction with Phantom
         const signedTx = await phantomWallet.signTransaction(transaction);
-        const signature = await connection.sendRawTransaction(signedTx.serialize());
+        const serializedTx = signedTx.serialize();
+        const base64Tx = btoa(String.fromCharCode(...serializedTx));
+        
+        // Send transaction - try proxy first, fall back to direct RPC
+        let signature;
+        try {
+            log('Sending transaction via proxy...', 'info');
+            const relayRes = await fetch('/api/relay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ signedTransaction: base64Tx }),
+            });
+            if (relayRes.ok) {
+                const data = await relayRes.json();
+                signature = data.signature;
+            } else {
+                const errData = await relayRes.json().catch(() => ({}));
+                throw new Error(errData.error || 'Proxy relay failed');
+            }
+        } catch (proxyErr) {
+            log(`Proxy unavailable (${proxyErr.message}), using direct RPC...`, 'info');
+            signature = await connection.sendRawTransaction(serializedTx);
+        }
         
         log(`Transaction sent: ${signature}`, 'success');
         elements.solanaTxHash.value = signature;
         elements.viewOnSolscan.href = `https://solscan.io/tx/${signature}`;
         elements.viewOnSolscan.style.display = 'inline-flex';
         
-        // Wait for confirmation
+        // Wait for confirmation (use direct RPC - reads are less restricted)
         log('Waiting for confirmation...', 'info');
         const confirmation = await connection.confirmTransaction({
             signature,
@@ -712,3 +751,4 @@ setStepState('source', 'active');
 if (sections.attestation) sections.attestation.classList.add('card-collapsed');
 if (sections.relay) sections.relay.classList.add('card-collapsed');
 log('CCTP Relayer initialized. Paste Noble tx hash to begin (Step 2).', 'info');
+

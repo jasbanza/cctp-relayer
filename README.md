@@ -28,28 +28,49 @@ A simple web UI to manually relay USDC transfers from Noble (Cosmos) to Solana u
 
 If you already have any intermediate values (message hash, attestation, etc.), you can paste them directly into the corresponding fields.
 
+## Project Structure
+
+```
+cctp-relayer/
+├── api/                    # Vercel serverless functions
+│   ├── blockhash.js        # GET /api/blockhash (proxies Solana RPC)
+│   ├── config.js           # Allowed origins config
+│   └── relay.js            # POST /api/relay (proxies Solana RPC)
+├── public/                 # Static website files
+│   ├── app.js
+│   ├── index.html
+│   └── styles.css
+├── .gitignore
+├── package.json
+└── README.md
+```
+
 ## Hosting
 
-This is a static site with no build step. To host:
+### Vercel (Recommended)
 
-### GitHub Pages
+The API proxy keeps your Helius RPC key secret while allowing CORS from your domains.
 
-1. Push this folder to a GitHub repository
-2. Go to Settings > Pages
-3. Select the branch and folder
-4. Your site will be live at `https://yourusername.github.io/repo-name`
+1. Push to GitHub
+2. Import repo at [vercel.com](https://vercel.com)
+3. Add environment variable:
+   - `HELIUS_RPC_URL` = `https://mainnet.helius-rpc.com/?api-key=YOUR_KEY`
+4. Deploy
+
+**To update allowed origins**, edit `api/config.js` and redeploy.
 
 ### Local Testing
 
-Simply open `index.html` in a browser, or use a local server:
-
 ```bash
-# Python 3
-python -m http.server 8000
-
-# Node.js
-npx serve
+yarn install
+yarn dev
 ```
+
+Note: The `/api/*` proxy won't work locally (falls back to direct RPC).
+
+### GitHub Pages (Static only)
+
+If you don't need the RPC proxy, you can host just the `public/` folder on GitHub Pages. The app will fall back to the direct Solana RPC configured in the UI.
 
 ## Configuration
 
@@ -58,7 +79,7 @@ All configuration values can be edited in the UI:
 | Field | Default | Description |
 |-------|---------|-------------|
 | Noble LCD API | `https://noble-api.polkachu.com` | Noble REST API endpoint |
-| Solana RPC | `https://api.mainnet-beta.solana.com` | Solana RPC endpoint |
+| Solana RPC | `https://rpc.ankr.com/solana` | Solana RPC endpoint (fallback) |
 | Circle Attestation API | `https://iris-api.circle.com/v1/attestations` | Circle's attestation service |
 | MessageTransmitter | `CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd` | Solana CCTP program |
 | TokenMessengerMinter | `CCTPiPYPc6AsJuwueEnWgSgucamXDZwBd53dQ11YiKX3` | Solana CCTP program |
@@ -137,3 +158,5 @@ The attestation is Circle's signature over the keccak256 hash of the message byt
 ## License
 
 MIT
+
+
