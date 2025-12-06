@@ -3,51 +3,46 @@
 
 import { ALLOWED_ORIGINS } from './config.js';
 
-function getCorsHeaders(origin) {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Vary': 'Origin',
-  };
+function setCorsHeaders(res, origin) {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Vary', 'Origin');
   
-  // Only allow whitelisted origins
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    headers['Access-Control-Allow-Origin'] = origin;
-    headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS';
-    headers['Access-Control-Allow-Headers'] = 'Content-Type';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   }
-  
-  return headers;
 }
 
 export default async function handler(req, res) {
   const origin = req.headers.origin;
-  const corsHeaders = getCorsHeaders(origin);
+  setCorsHeaders(res, origin);
   
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200).set(corsHeaders).end();
+    return res.status(200).end();
   }
   
   // Only allow POST
   if (req.method !== 'POST') {
-    return res.status(405).set(corsHeaders).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
   
   // Check origin
   if (origin && !ALLOWED_ORIGINS.includes(origin)) {
-    return res.status(403).set(corsHeaders).json({ error: 'Origin not allowed' });
+    return res.status(403).json({ error: 'Origin not allowed' });
   }
   
   const heliusUrl = process.env.HELIUS_RPC_URL;
   if (!heliusUrl) {
     console.error('HELIUS_RPC_URL not configured');
-    return res.status(500).set(corsHeaders).json({ error: 'Server misconfigured' });
+    return res.status(500).json({ error: 'Server misconfigured' });
   }
   
   const { signedTransaction } = req.body || {};
   
   if (!signedTransaction) {
-    return res.status(400).set(corsHeaders).json({ error: 'Missing signedTransaction in request body' });
+    return res.status(400).json({ error: 'Missing signedTransaction in request body' });
   }
   
   try {
@@ -73,7 +68,7 @@ export default async function handler(req, res) {
     const sendData = await sendResponse.json();
     
     if (sendData.error) {
-      return res.status(400).set(corsHeaders).json({ 
+      return res.status(400).json({ 
         error: sendData.error.message,
         details: sendData.error 
       });
@@ -81,13 +76,13 @@ export default async function handler(req, res) {
     
     const signature = sendData.result;
     
-    return res.status(200).set(corsHeaders).json({
+    return res.status(200).json({
       signature,
       explorerUrl: `https://solscan.io/tx/${signature}`,
     });
   } catch (err) {
     console.error('Relay error:', err);
-    return res.status(500).set(corsHeaders).json({ error: 'Failed to relay transaction' });
+    return res.status(500).json({ error: 'Failed to relay transaction' });
   }
 }
 

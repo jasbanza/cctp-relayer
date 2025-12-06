@@ -3,45 +3,40 @@
 
 import { ALLOWED_ORIGINS } from './config.js';
 
-function getCorsHeaders(origin) {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Vary': 'Origin',
-  };
+function setCorsHeaders(res, origin) {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Vary', 'Origin');
   
-  // Only allow whitelisted origins
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    headers['Access-Control-Allow-Origin'] = origin;
-    headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
-    headers['Access-Control-Allow-Headers'] = 'Content-Type';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   }
-  
-  return headers;
 }
 
 export default async function handler(req, res) {
   const origin = req.headers.origin;
-  const corsHeaders = getCorsHeaders(origin);
+  setCorsHeaders(res, origin);
   
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200).set(corsHeaders).end();
+    return res.status(200).end();
   }
   
   // Only allow GET
   if (req.method !== 'GET') {
-    return res.status(405).set(corsHeaders).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
   
   // Check origin
   if (origin && !ALLOWED_ORIGINS.includes(origin)) {
-    return res.status(403).set(corsHeaders).json({ error: 'Origin not allowed' });
+    return res.status(403).json({ error: 'Origin not allowed' });
   }
   
   const heliusUrl = process.env.HELIUS_RPC_URL;
   if (!heliusUrl) {
     console.error('HELIUS_RPC_URL not configured');
-    return res.status(500).set(corsHeaders).json({ error: 'Server misconfigured' });
+    return res.status(500).json({ error: 'Server misconfigured' });
   }
   
   try {
@@ -59,16 +54,16 @@ export default async function handler(req, res) {
     const data = await rpcResponse.json();
     
     if (data.error) {
-      return res.status(400).set(corsHeaders).json({ error: data.error.message });
+      return res.status(400).json({ error: data.error.message });
     }
     
-    return res.status(200).set(corsHeaders).json({
+    return res.status(200).json({
       blockhash: data.result.value.blockhash,
       lastValidBlockHeight: data.result.value.lastValidBlockHeight,
     });
   } catch (err) {
     console.error('Blockhash fetch error:', err);
-    return res.status(500).set(corsHeaders).json({ error: 'Failed to fetch blockhash' });
+    return res.status(500).json({ error: 'Failed to fetch blockhash' });
   }
 }
 
