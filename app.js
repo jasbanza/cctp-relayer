@@ -494,10 +494,15 @@ async function relayToSolana() {
         
         // Parse message to extract nonce and source domain
         // Message format: version(4) + sourceDomain(4) + destDomain(4) + nonce(8) + sender(32) + recipient(32) + destCaller(32) + body(...)
-        const sourceDomain = new DataView(messageBytes.buffer).getUint32(4, false); // big endian
-        const nonce = messageBytes.slice(12, 20); // 8 bytes nonce
+        // Create explicit copies for safe DataView access
+        const sourceDomainBytes = new Uint8Array(messageBytes.slice(4, 8));
+        const nonceBytes = new Uint8Array(messageBytes.slice(12, 20));
         
-        log(`Source domain: ${sourceDomain}, Nonce: ${bytesToHex(nonce)}`, 'info');
+        const sourceDomain = new DataView(sourceDomainBytes.buffer).getUint32(0, false); // big endian in message
+        const nonceValue = new DataView(nonceBytes.buffer).getBigUint64(0, false); // big endian in message
+        
+        log(`Source domain: ${sourceDomain}`, 'info');
+        log(`Nonce value: ${nonceValue}`, 'info');
         
         // Derive PDAs
         // MessageTransmitter state PDA
@@ -512,18 +517,23 @@ async function relayToSolana() {
             messageTransmitterProgramId
         );
         
-        // Used nonces PDA - format: "used_nonces" + source_domain (u32 LE) + first_nonce (u64 LE)
-        // The nonce account stores a bitmap, we need to find the right one
-        const nonceValue = new DataView(nonce.buffer, nonce.byteOffset).getBigUint64(0, false); // big endian from message
-        const firstNonce = (nonceValue / 64n) * 64n; // Round down to nearest 64
+        // Used nonces PDA - format: "used_nonces" + remote_domain (u32 LE) + first_nonce (u64 LE)
+        // The nonce account stores a bitmap of 64 nonces, first_nonce is rounded down
+        const firstNonce = (nonceValue / 64n) * 64n;
         
         const sourceDomainBuffer = u32ToBytesLE(sourceDomain);
         const firstNonceBuffer = u64ToBytesLE(firstNonce);
+        
+        log(`First nonce (for PDA): ${firstNonce}`, 'info');
+        log(`Source domain buffer: ${bytesToHex(sourceDomainBuffer)}`, 'info');
+        log(`First nonce buffer: ${bytesToHex(firstNonceBuffer)}`, 'info');
         
         const [usedNonces] = PublicKey.findProgramAddressSync(
             [bytesFromString('used_nonces'), sourceDomainBuffer, firstNonceBuffer],
             messageTransmitterProgramId
         );
+        
+        log(`Used nonces PDA: ${usedNonces.toString()}`, 'info');
         
         // TokenMessenger state PDA
         const [tokenMessenger] = PublicKey.findProgramAddressSync(
