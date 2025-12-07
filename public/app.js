@@ -628,8 +628,8 @@ async function relayToSolana() {
             { pubkey: usedNonces, isSigner: false, isWritable: true },          // used_nonces
             { pubkey: tokenMessengerMinterProgramId, isSigner: false, isWritable: false }, // receiver (TokenMessengerMinter)
             { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
-            { pubkey: messageTransmitterProgramId, isSigner: false, isWritable: false }, // program (MessageTransmitter)
             { pubkey: eventAuthority, isSigner: false, isWritable: false },     // event_authority for MessageTransmitter events
+            { pubkey: messageTransmitterProgramId, isSigner: false, isWritable: false }, // program (MessageTransmitter)
             // Remaining accounts forwarded to TokenMessengerMinter.handle_receive_message
             { pubkey: tokenMessenger, isSigner: false, isWritable: false },     // token_messenger
             { pubkey: remoteTokenMessenger, isSigner: false, isWritable: false }, // remote_token_messenger
