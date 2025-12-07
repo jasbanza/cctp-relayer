@@ -517,19 +517,25 @@ async function relayToSolana() {
             messageTransmitterProgramId
         );
         
-        // Used nonces PDA - format: "used_nonces" + remote_domain (u32 LE) + first_nonce (u64 LE)
-        // The nonce account stores a bitmap of 64 nonces, first_nonce is rounded down
-        const firstNonce = (nonceValue / 64n) * 64n;
-        
+        // Used nonces PDA (V1): "used_nonces" + message_transmitter_state + remote_domain (u32 LE) + bucket_index (u64 LE)
+        // Each UsedNonces account tracks a bucket of nonces for a remote domain.
+        // bucket_index = nonce / 6400 (integer division)
         const sourceDomainBuffer = u32ToBytesLE(sourceDomain);
-        const firstNonceBuffer = u64ToBytesLE(firstNonce);
-        
-        log(`First nonce (for PDA): ${firstNonce}`, 'info');
+        const bucketIndex = nonceValue / 6400n;
+        const bucketIndexBuffer = u64ToBytesLE(bucketIndex);
+
+        log(`Bucket index (nonce / 6400): ${bucketIndex}`, 'info');
         log(`Source domain buffer: ${bytesToHex(sourceDomainBuffer)}`, 'info');
-        log(`First nonce buffer: ${bytesToHex(firstNonceBuffer)}`, 'info');
+        log(`Bucket index buffer: ${bytesToHex(bucketIndexBuffer)}`, 'info');
+        log(`MessageTransmitter state: ${messageTransmitterState.toString()}`, 'info');
         
         const [usedNonces] = PublicKey.findProgramAddressSync(
-            [bytesFromString('used_nonces'), sourceDomainBuffer, firstNonceBuffer],
+            [
+                bytesFromString('used_nonces'),
+                messageTransmitterState.toBuffer(),
+                sourceDomainBuffer,
+                bucketIndexBuffer,
+            ],
             messageTransmitterProgramId
         );
         
