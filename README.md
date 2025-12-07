@@ -1,6 +1,11 @@
 # CCTP Relayer - Noble to Solana
 
-A simple web UI to manually relay USDC transfers from Noble (Cosmos) to Solana using Circle's Cross-Chain Transfer Protocol (CCTP).
+**Work in progress.** This tool is currently focused on **manual recovery of USDC transfers from Noble (Cosmos) to Solana** using Circle's Cross-Chain Transfer Protocol (CCTP). Other chains and flows are not supported yet. Should you want other recoveries e.g. EVM, [Buy me a coffee and pop me a message here](https://buymeacoffee.com/jasbanza)
+
+## Live deployments
+
+- **Vercel**: `https://cctp-relayer.vercel.app/`
+- **GitHub Pages**: `https://jasbanza.github.io/cctp-relayer/`
 
 ## Features
 
