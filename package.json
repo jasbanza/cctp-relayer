@@ -5,6 +5,7 @@
   "description": "CCTP relayer UI for manually relaying USDC transfers from Noble (Cosmos) to Solana using Circle CCTP and Phantom.",
   "author": "jasbanza",
   "license": "MIT",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jasbanza/cctp-relayer.git"
@@ -24,5 +25,3 @@
     "serve": "^14.2.0"
   }
 }
-
-
