@@ -517,31 +517,41 @@ async function relayToSolana() {
             messageTransmitterProgramId
         );
         
-        // Used nonces PDA (V1): "used_nonces" + message_transmitter_program_id + remote_domain (u32 LE) + bucket_index (u64 LE)
-        // Each UsedNonces account tracks 6,400 nonces for a remote domain:
-        // - There are 100 u64s, each storing 64 bits (nonces) → 100 * 64 = 6,400
-        // - bucket_index = nonce / 6400 (integer division)
-        const sourceDomainBuffer = u32ToBytesLE(sourceDomain);
-        const bucketIndex = nonceValue / 6400n;
-        const bucketIndexBuffer = u64ToBytesLE(bucketIndex);
+        // Locate the correct UsedNonces account on-chain by scanning program accounts.
+        // Layout (Anchor account): 8-byte discriminator + UsedNonces struct:
+        // struct UsedNonces {
+        //   remote_domain: u32,
+        //   first_nonce: u64,
+        //   used_nonces: [u64; 100],
+        // }
+        // So data length should be 8 + 4 + 8 + 8 * 100 = 828 bytes.
+        log('Searching for matching used_nonces account on-chain...', 'info');
+        const programAccounts = await connection.getProgramAccounts(messageTransmitterProgramId);
 
-        log(`Bucket index (nonce / 6400): ${bucketIndex}`, 'info');
-        log(`Source domain buffer: ${bytesToHex(sourceDomainBuffer)}`, 'info');
-        log(`Bucket index buffer: ${bytesToHex(bucketIndexBuffer)}`, 'info');
-        log(`MessageTransmitter state: ${messageTransmitterState.toString()}`, 'info');
-        log(`MessageTransmitter program id: ${messageTransmitterProgramId.toString()}`, 'info');
-        
-        const [usedNonces] = PublicKey.findProgramAddressSync(
-            [
-                bytesFromString('used_nonces'),
-                messageTransmitterProgramId.toBuffer(),
-                sourceDomainBuffer,
-                bucketIndexBuffer,
-            ],
-            messageTransmitterProgramId
-        );
-        
-        log(`Used nonces PDA: ${usedNonces.toString()}`, 'info');
+        let usedNonces = null;
+        for (const acct of programAccounts) {
+            const data = acct.account.data;
+            if (data.length !== 828) continue; // skip non-UsedNonces accounts
+
+            const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+            const remoteDomain = dv.getUint32(8, true); // after 8-byte discrim, LE
+            const firstNonce = dv.getBigUint64(12, true); // LE
+
+            if (remoteDomain !== sourceDomain) continue;
+
+            const lastNonceExclusive = firstNonce + 6400n;
+            if (nonceValue >= firstNonce && nonceValue < lastNonceExclusive) {
+                usedNonces = acct.pubkey;
+                log(`Matched UsedNonces account: ${usedNonces.toString()}`, 'info');
+                log(`UsedNonces remote_domain: ${remoteDomain}, first_nonce: ${firstNonce}`, 'info');
+                break;
+            }
+        }
+
+        if (!usedNonces) {
+            log('Failed to find matching used_nonces account on-chain for this message nonce.', 'error');
+            throw new Error('No matching used_nonces account found');
+        }
         
         // TokenMessenger state PDA
         const [tokenMessenger] = PublicKey.findProgramAddressSync(
