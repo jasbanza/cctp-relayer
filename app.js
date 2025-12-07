@@ -588,13 +588,16 @@ async function relayToSolana() {
         // Discriminator for receive_message in MessageTransmitter
         const RECEIVE_MESSAGE_DISCRIMINATOR = Uint8Array.from([38, 144, 127, 225, 31, 225, 238, 25]);
         
-        // Instruction data: discriminator + message length (u32 LE) + message + attestation
+        // Instruction data: discriminator + message (Vec<u8>) + attestation (Vec<u8>)
+        // In Borsh/Anchor, Vec<u8> is serialized as: u32 length (LE) + bytes
         const messageLenBuffer = u32ToBytesLE(messageBytes.length);
+        const attestationLenBuffer = u32ToBytesLE(attestationBytes.length);
         
         const instructionData = concatUint8Arrays([
             RECEIVE_MESSAGE_DISCRIMINATOR,
             messageLenBuffer,
             messageBytes,
+            attestationLenBuffer,
             attestationBytes
         ]);
         
