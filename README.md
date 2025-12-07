@@ -1,6 +1,8 @@
 # CCTP Relayer - Noble to Solana
 
-**Work in progress.** This tool is currently focused on **manual recovery of USDC transfers from Noble (Cosmos) to Solana** using Circle's Cross-Chain Transfer Protocol (CCTP). Other chains and flows are not supported yet. Should you want other recoveries e.g. EVM, [Buy me a coffee and pop me a message here](https://buymeacoffee.com/jasbanza)
+**Work in progress.** This tool is currently focused on **manual recovery of USDC transfers from Noble (Cosmos) to Solana** using Circle's Cross-Chain Transfer Protocol (CCTP). Other chains and flows are not supported yet. Should you want other recoveries e.g. EVM, [Buy me a coffee and pop me a message here](https://buymeacoffee.com/jasbanza).
+
+This is an independent, community-built tool and is **not affiliated with or endorsed by Circle, Solana, Phantom, or any other referenced project.**
 
 ## Live deployments
 
@@ -23,11 +25,10 @@
 ### Option 1: Full Flow
 
 1. Enter your Noble transaction hash
-2. Click "Fetch TX" to retrieve the message data
-3. The message will auto-convert to hex and compute the hash
-4. Click "Fetch" to get the attestation from Circle
-5. Connect your Phantom wallet
-6. Click "Relay to Solana"
+2. Click "Fetch TX" to retrieve the message data (the tool will auto-convert to hex, compute the hash, and fetch the attestation)
+3. Wait until the attestation status shows `complete`
+4. Connect your Phantom wallet
+5. Click "Relay to Solana"
 
 ### Option 2: Manual Entry
 
