@@ -543,6 +543,13 @@ async function relayToSolana() {
             [bytesFromString('token_minter')],
             tokenMessengerMinterProgramId
         );
+
+        // Debug log all key PDAs to locate mismatched account in ConstraintSeeds errors
+        log(`authorityPda: ${authorityPda.toString()}`, 'info');
+        log(`messageTransmitterState: ${messageTransmitterState.toString()}`, 'info');
+        log(`tokenMessenger: ${tokenMessenger.toString()}`, 'info');
+        log(`remoteTokenMessenger: ${remoteTokenMessenger.toString()}`, 'info');
+        log(`tokenMinter: ${tokenMinter.toString()}`, 'info');
         
         // Extract mint recipient from message body
         // Body starts at offset 116 (4+4+4+8+32+32+32)
@@ -581,7 +588,13 @@ async function relayToSolana() {
         
         // Event authority PDA for Anchor events (hard-coded for TokenMessengerMinter)
         const eventAuthority = new PublicKey('6mH8scevHQJsyyp1qxu8kyAapHuzEE67mtjFDJZjSbQW');
-        log(`Using hard-coded event authority: ${eventAuthority.toString()}`, 'info');
+
+        // Log all remaining accounts that go into the instruction to help match Left/Right in errors
+        log(`localToken: ${localToken.toString()}`, 'info');
+        log(`tokenPair: ${tokenPair.toString()}`, 'info');
+        log(`custodyToken: ${custodyToken.toString()}`, 'info');
+        log(`TOKEN_PROGRAM_ID: ${TOKEN_PROGRAM_ID.toString()}`, 'info');
+        log(`eventAuthority (hard-coded): ${eventAuthority.toString()}`, 'info');
         
         // Build the receiveMessage instruction
         // Discriminator for receive_message in MessageTransmitter
