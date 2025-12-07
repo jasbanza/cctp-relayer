@@ -4,8 +4,8 @@
 
 ## Live deployments
 
-- **Vercel**: `https://cctp-relayer.vercel.app/`
-- **GitHub Pages**: `https://jasbanza.github.io/cctp-relayer/`
+- **Vercel**: [https://cctp-relayer.vercel.app/](https://cctp-relayer.vercel.app/)
+- **GitHub Pages**: [https://jasbanza.github.io/cctp-relayer/](https://jasbanza.github.io/cctp-relayer/)
 
 ## Features
 
