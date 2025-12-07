@@ -12,3 +12,4 @@ $output += ""
 $output += "=== REMOTE ==="
 $output += (git remote -v 2>&1)
 $output | Out-File -FilePath "c:\dev\cctp-relayer\git-debug.txt" -Encoding UTF8
+

@@ -615,6 +615,11 @@ async function relayToSolana() {
         
         // Build accounts for receiveMessage instruction
         // This calls into TokenMessengerMinter via CPI
+        // NOTE: Account ordering is critical to satisfy Anchor's account constraints.
+        // Full MessageTransmitter.ReceiveMessageContext<'info> (including #[event_cpi]) fields:
+        //   payer, caller, authority_pda, message_transmitter, used_nonces, receiver,
+        //   system_program, event_authority, program
+        // Everything after those is forwarded as remaining_accounts to TokenMessengerMinter.handle_receive_message.
         const accounts = [
             { pubkey: walletPublicKey, isSigner: true, isWritable: true },      // payer
             { pubkey: walletPublicKey, isSigner: true, isWritable: false },     // caller
@@ -623,17 +628,18 @@ async function relayToSolana() {
             { pubkey: usedNonces, isSigner: false, isWritable: true },          // used_nonces
             { pubkey: tokenMessengerMinterProgramId, isSigner: false, isWritable: false }, // receiver (TokenMessengerMinter)
             { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
-            // Additional accounts for TokenMessengerMinter.handle_receive_message
+            { pubkey: messageTransmitterProgramId, isSigner: false, isWritable: false }, // program (MessageTransmitter)
+            { pubkey: eventAuthority, isSigner: false, isWritable: false },     // event_authority for MessageTransmitter events
+            // Remaining accounts forwarded to TokenMessengerMinter.handle_receive_message
             { pubkey: tokenMessenger, isSigner: false, isWritable: false },     // token_messenger
             { pubkey: remoteTokenMessenger, isSigner: false, isWritable: false }, // remote_token_messenger
             { pubkey: tokenMinter, isSigner: false, isWritable: false },        // token_minter
             { pubkey: localToken, isSigner: false, isWritable: true },          // local_token
             { pubkey: tokenPair, isSigner: false, isWritable: false },          // token_pair
-            { pubkey: mintRecipient, isSigner: false, isWritable: true },       // mint_recipient (token account)
-            { pubkey: custodyToken, isSigner: false, isWritable: true },        // custody_token
+            { pubkey: mintRecipient, isSigner: false, isWritable: true },       // recipient_token_account
+            { pubkey: custodyToken, isSigner: false, isWritable: true },        // custody_token_account
             { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },   // token_program
-            { pubkey: eventAuthority, isSigner: false, isWritable: false },     // event_authority
-            { pubkey: tokenMessengerMinterProgramId, isSigner: false, isWritable: false }, // program (for events)
+            // (TokenMessengerMinter's own event_cpi accounts are optional for our purposes)
         ];
         
         const instruction = new TransactionInstruction({
