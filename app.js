@@ -499,12 +499,10 @@ async function relayToSolana() {
         const nonceBytes = new Uint8Array(messageBytes.slice(12, 20));
         
         const sourceDomain = new DataView(sourceDomainBytes.buffer).getUint32(0, false); // big endian in message
-        const nonceValueBE = new DataView(nonceBytes.buffer).getBigUint64(0, false); // big endian in message
-        const nonceValueLE = new DataView(nonceBytes.buffer).getBigUint64(0, true);  // little endian variant for debugging
+        const nonceValue = new DataView(nonceBytes.buffer).getBigUint64(0, false); // big endian in message
         
         log(`Source domain: ${sourceDomain}`, 'info');
-        log(`Nonce value BE: ${nonceValueBE}`, 'info');
-        log(`Nonce value LE: ${nonceValueLE}`, 'info');
+        log(`Nonce value: ${nonceValue}`, 'info');
         
         // Derive PDAs
         // MessageTransmitter state PDA
@@ -519,49 +517,31 @@ async function relayToSolana() {
             messageTransmitterProgramId
         );
         
-        // Used nonces PDA (V1): "used_nonces" + message_transmitter_state + remote_domain (u32 LE) + bucket_index (u64 LE)
+        // Used nonces PDA (V1): "used_nonces" + message_transmitter_program_id + remote_domain (u32 LE) + bucket_index (u64 LE)
         // Each UsedNonces account tracks 6,400 nonces for a remote domain:
         // - There are 100 u64s, each storing 64 bits (nonces) → 100 * 64 = 6,400
         // - bucket_index = nonce / 6400 (integer division)
         const sourceDomainBuffer = u32ToBytesLE(sourceDomain);
-        const bucketIndexBE = nonceValueBE / 6400n;
-        const bucketIndexLE = nonceValueLE / 6400n;
-        const bucketIndexBufferBE = u64ToBytesLE(bucketIndexBE);
-        const bucketIndexBufferLE = u64ToBytesLE(bucketIndexLE);
+        const bucketIndex = nonceValue / 6400n;
+        const bucketIndexBuffer = u64ToBytesLE(bucketIndex);
 
-        log(`Bucket index BE (nonceBE / 6400): ${bucketIndexBE}`, 'info');
-        log(`Bucket index LE (nonceLE / 6400): ${bucketIndexLE}`, 'info');
+        log(`Bucket index (nonce / 6400): ${bucketIndex}`, 'info');
         log(`Source domain buffer: ${bytesToHex(sourceDomainBuffer)}`, 'info');
-        log(`Bucket index buffer BE: ${bytesToHex(bucketIndexBufferBE)}`, 'info');
-        log(`Bucket index buffer LE: ${bytesToHex(bucketIndexBufferLE)}`, 'info');
+        log(`Bucket index buffer: ${bytesToHex(bucketIndexBuffer)}`, 'info');
         log(`MessageTransmitter state: ${messageTransmitterState.toString()}`, 'info');
+        log(`MessageTransmitter program id: ${messageTransmitterProgramId.toString()}`, 'info');
         
-        const [usedNoncesBE] = PublicKey.findProgramAddressSync(
+        const [usedNonces] = PublicKey.findProgramAddressSync(
             [
                 bytesFromString('used_nonces'),
-                messageTransmitterState.toBuffer(),
+                messageTransmitterProgramId.toBuffer(),
                 sourceDomainBuffer,
-                bucketIndexBufferBE,
-            ],
-            messageTransmitterProgramId
-        );
-
-        const [usedNoncesLE] = PublicKey.findProgramAddressSync(
-            [
-                bytesFromString('used_nonces'),
-                messageTransmitterState.toBuffer(),
-                sourceDomainBuffer,
-                bucketIndexBufferLE,
+                bucketIndexBuffer,
             ],
             messageTransmitterProgramId
         );
         
-        log(`Used nonces PDA (BE): ${usedNoncesBE.toString()}`, 'info');
-        log(`Used nonces PDA (LE): ${usedNoncesLE.toString()}`, 'info');
-
-        // For now, use the BE-derived PDA; once we confirm which matches the on-chain expected PDA,
-        // we can switch to that one.
-        const usedNonces = usedNoncesBE;
+        log(`Used nonces PDA: ${usedNonces.toString()}`, 'info');
         
         // TokenMessenger state PDA
         const [tokenMessenger] = PublicKey.findProgramAddressSync(
