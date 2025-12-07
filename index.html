@@ -75,7 +75,7 @@
             </div>
             <div class="form-row">
                 <div class="form-group full-width">
-                    <label for="solanaRpc">Solana RPC</label>
+                    <label for="solanaRpc">Solana RPC (fallback for confirmation)</label>
                     <input type="text" id="solanaRpc" value="https://rpc.ankr.com/solana">
                 </div>
             </div>
@@ -244,6 +244,8 @@
     <!-- Fallback to jsDelivr for ethers.js since cdn.ethers.io may not resolve -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script src="app.js"></script>
+    <!-- Vercel Analytics -->
+    <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
 
