@@ -579,11 +579,9 @@ async function relayToSolana() {
         // Token program
         const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
         
-        // Event authority PDA for anchor events
-        const [eventAuthority] = PublicKey.findProgramAddressSync(
-            [bytesFromString('__event_authority')],
-            tokenMessengerMinterProgramId
-        );
+        // Event authority PDA for Anchor events (hard-coded for TokenMessengerMinter)
+        const eventAuthority = new PublicKey('6mH8scevHQJsyyp1qxu8kyAapHuzEE67mtjFDJZjSbQW');
+        log(`Using hard-coded event authority: ${eventAuthority.toString()}`, 'info');
         
         // Build the receiveMessage instruction
         // Discriminator for receive_message in MessageTransmitter
