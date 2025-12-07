@@ -19,10 +19,10 @@
     "start": "serve -l 8000 public",
     "build": "echo \"Static app – nothing to build\""
   },
-  "dependencies": {},
+  "dependencies": {
+    "@vercel/analytics": "^1.6.1"
+  },
   "devDependencies": {
     "serve": "^14.2.0"
   }
 }
-
-
