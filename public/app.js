@@ -693,6 +693,21 @@ async function relayToSolana() {
                 signature = data.signature;
             } else {
                 const errData = await relayRes.json().catch(() => ({}));
+
+                // Handle known CCTP errors explicitly
+                if (errData && errData.code === 'INVALID_DESTINATION_CALLER') {
+                    log(
+                        errData.error ||
+                            'This CCTP message restricts who can relay it (non-zero destination_caller). Only the original caller wallet can complete this relay.',
+                        'error'
+                    );
+                    log(
+                        'Tip: Use a Noble transaction where destination_caller is zero, or connect the original caller wallet.',
+                        'info'
+                    );
+                    return;
+                }
+
                 throw new Error(errData.error || 'Proxy relay failed');
             }
         } catch (proxyErr) {

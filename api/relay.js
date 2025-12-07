@@ -68,9 +68,26 @@ export default async function handler(req, res) {
     const sendData = await sendResponse.json();
     
     if (sendData.error) {
-      return res.status(400).json({ 
-        error: sendData.error.message,
-        details: sendData.error 
+      const err = sendData.error || {};
+      const logs = (err.data && err.data.logs) || [];
+      const logsText = Array.isArray(logs) ? logs.join('\n') : String(logs || '');
+
+      // Detect InvalidDestinationCaller specifically and surface a user-friendly message
+      if (
+        logsText.includes('InvalidDestinationCaller') ||
+        logsText.includes('Invalid destination caller')
+      ) {
+        return res.status(400).json({
+          code: 'INVALID_DESTINATION_CALLER',
+          error:
+            'This CCTP message has a restricted destination caller. Only the original caller wallet can relay it. Use a different Noble transaction or that specific wallet.',
+          details: err,
+        });
+      }
+
+      return res.status(400).json({
+        error: err.message || 'Transaction simulation failed',
+        details: err,
       });
     }
     
