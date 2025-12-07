@@ -16,6 +16,7 @@ const elements = {
     destDomainId: document.getElementById('destDomainId'),
     nobleRpc: document.getElementById('nobleRpc'),
     solanaRpc: document.getElementById('solanaRpc'),
+    apiBase: document.getElementById('apiBase'),
     attestationApi: document.getElementById('attestationApi'),
     messageTransmitter: document.getElementById('messageTransmitter'),
     tokenMessengerMinter: document.getElementById('tokenMessengerMinter'),
@@ -200,6 +201,14 @@ function hexToBytes(hex) {
 
 function bytesToHex(bytes) {
     return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function getApiBase() {
+    if (!elements.apiBase) return '';
+    const raw = elements.apiBase.value.trim();
+    if (!raw) return '';
+    // Strip trailing slashes
+    return raw.replace(/\/+$/, '');
 }
 
 // Update global CCTP explorer link from Noble tx hash
@@ -653,8 +662,10 @@ async function relayToSolana() {
         // Get recent blockhash - try proxy first, fall back to direct RPC
         let blockhash, lastValidBlockHeight;
         try {
-            log('Fetching blockhash via proxy...', 'info');
-            const blockhashRes = await fetch('/api/blockhash');
+            const apiBase = getApiBase();
+            const blockhashUrl = apiBase ? `${apiBase}/api/blockhash` : '/api/blockhash';
+            log(`Fetching blockhash via proxy (${blockhashUrl})...`, 'info');
+            const blockhashRes = await fetch(blockhashUrl);
             if (blockhashRes.ok) {
                 const data = await blockhashRes.json();
                 blockhash = data.blockhash;
@@ -682,8 +693,10 @@ async function relayToSolana() {
         // Send transaction - try proxy first, fall back to direct RPC
         let signature;
         try {
-            log('Sending transaction via proxy...', 'info');
-            const relayRes = await fetch('/api/relay', {
+            const apiBase = getApiBase();
+            const relayUrl = apiBase ? `${apiBase}/api/relay` : '/api/relay';
+            log(`Sending transaction via proxy (${relayUrl})...`, 'info');
+            const relayRes = await fetch(relayUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ signedTransaction: base64Tx }),
