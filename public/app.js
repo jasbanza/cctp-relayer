@@ -243,10 +243,13 @@ function debugPdaDerivation() {
     const messageTransmitterProgramId = new PublicKey('CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd');
     
     // Known working values from successful transaction (nonce 288574)
-    // Key finding: on-chain data shows firstNonce = 288001, NOT 288000!
-    // CCTP uses 1-indexed buckets: firstNonce = floor((nonce-1)/6400)*6400 + 1
     const knownUsedNonces = '3ewgRKdMT8WjPjExuVuZ9gZ7qDYwquefpwtL1SUkLCxf';
     const sourceDomain = 4;  // Noble
+    const nonce = 288574n;
+    
+    // Correct formula: firstNonce = floor((nonce-1)/6400)*6400 + 1
+    const NONCES_PER_ACCOUNT = 6400n;
+    const firstNonce = ((nonce - 1n) / NONCES_PER_ACCOUNT) * NONCES_PER_ACCOUNT + 1n;
     
     const results = [];
     
@@ -267,30 +270,35 @@ function debugPdaDerivation() {
     console.log('=== PDA Derivation Investigation ===');
     console.log('Known working PDA:', knownUsedNonces);
     console.log('Program:', messageTransmitterProgramId.toString());
+    console.log('Nonce:', nonce.toString(), '→ firstNonce:', firstNonce.toString());
     console.log('');
-    
-    // Standard LE encoding - with CORRECTED first nonce (288001 not 288000)
-    const seed1 = bytesFromString('used_nonces');
-    const domainLE = u32ToBytesLE(sourceDomain);
-    
-    // The BUG was here: using 288000 instead of 288001
-    // CCTP buckets are 1-indexed: firstNonce = floor((nonce-1)/6400)*6400 + 1
-    const wrongNonce = 288000n;  // What we were using
-    const correctNonce = 288001n; // What CCTP actually uses (from on-chain data)
     
     console.log('=== KEY FINDING ===');
-    console.log('On-chain firstNonce from account data: 288001');
-    console.log('What we were calculating: 288000');
-    console.log('CCTP uses 1-indexed buckets!');
-    console.log('Formula: firstNonce = floor((nonce-1)/6400)*6400 + 1');
+    console.log('From CCTP source code (get_nonce_pda.rs):');
+    console.log('Seeds use DECIMAL STRINGS, not binary encoding!');
+    console.log('  - domain "4" (not 0x04000000)');
+    console.log('  - firstNonce "288001" (not 0x0165040000000000)');
+    console.log('  - delimiter "" for domains < 11');
     console.log('');
     
-    console.log('Testing with WRONG nonce (288000):');
-    tryDerivation('WRONG: [used_nonces, domain_le, 288000_le]', [seed1, domainLE, u64ToBytesLE(wrongNonce)]);
+    // WRONG: Binary encoding (what we were doing)
+    console.log('Testing WRONG approach (binary encoding):');
+    tryDerivation('WRONG: binary LE', [
+        bytesFromString('used_nonces'),
+        u32ToBytesLE(sourceDomain),
+        u64ToBytesLE(firstNonce)
+    ]);
     
     console.log('');
-    console.log('Testing with CORRECT nonce (288001):');
-    tryDerivation('CORRECT: [used_nonces, domain_le, 288001_le]', [seed1, domainLE, u64ToBytesLE(correctNonce)]);
+    console.log('Testing CORRECT approach (string encoding):');
+    // CORRECT: String encoding (from CCTP source)
+    const delimiter = sourceDomain < 11 ? '' : '-';
+    tryDerivation('CORRECT: strings', [
+        bytesFromString('used_nonces'),
+        bytesFromString(sourceDomain.toString()),  // "4"
+        bytesFromString(delimiter),                 // ""
+        bytesFromString(firstNonce.toString())      // "288001"
+    ]);
     
     console.log('');
     console.log('=== Summary ===');
@@ -823,19 +831,29 @@ async function relayToSolana() {
         const tokenMessengerMinterEventAuthority = new PublicKey('CNfZLeeL4RUxwfPnjA3tLiQt4y43jp4V7bMpga673jf9');
         
         // ============ DYNAMIC: UsedNonces depends on nonce bucket ============
-        // CCTP uses 1-indexed buckets! Formula: firstNonce = floor((nonce-1)/6400)*6400 + 1
-        // This was discovered by inspecting on-chain account data which showed firstNonce=288001
+        // CCTP uses 1-indexed buckets: firstNonce = floor((nonce-1)/6400)*6400 + 1
+        // CRITICAL: Seeds use DECIMAL STRINGS, not binary encoding!
+        // Source: https://github.com/circlefin/solana-cctp-contracts/blob/master/programs/message-transmitter/src/instructions/get_nonce_pda.rs
         const NONCES_PER_ACCOUNT = 6400n;
         const firstNonce = ((nonceValue - 1n) / NONCES_PER_ACCOUNT) * NONCES_PER_ACCOUNT + 1n;
         
-        // Derive usedNonces PDA dynamically (now works correctly with 1-indexed buckets!)
-        const sourceDomainBuffer = u32ToBytesLE(sourceDomain);
-        const firstNonceBuffer = u64ToBytesLE(firstNonce);
+        // Seeds: ["used_nonces", domain_as_string, delimiter, firstNonce_as_string]
+        // For domains < 11, delimiter is empty
+        const domainString = sourceDomain.toString();  // "4" not binary bytes
+        const firstNonceString = firstNonce.toString();  // "288001" not binary bytes
+        const delimiter = sourceDomain < 11 ? '' : '-';
+        
         const [usedNonces] = PublicKey.findProgramAddressSync(
-            [bytesFromString('used_nonces'), sourceDomainBuffer, firstNonceBuffer],
+            [
+                bytesFromString('used_nonces'),
+                bytesFromString(domainString),
+                bytesFromString(delimiter),
+                bytesFromString(firstNonceString)
+            ],
             messageTransmitterProgramId
         );
         log(`Nonce ${nonceValue} → firstNonce bucket ${firstNonce}`, 'info');
+        log(`usedNonces seeds: ["used_nonces", "${domainString}", "${delimiter}", "${firstNonceString}"]`, 'info');
         log(`usedNonces (derived): ${usedNonces.toString()}`, 'info');
         log(`authorityPda: ${authorityPda.toString()}`, 'info');
         
