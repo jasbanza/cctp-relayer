@@ -48,6 +48,51 @@ header h1 {
     font-size: 1rem;
 }
 
+.help-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+/* Top-level mode tabs */
+.tab-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 0.6rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.tab-button:hover {
+    background: var(--border-color);
+}
+
+.tab-button-active {
+    border-color: var(--accent-primary);
+    background: rgba(29, 155, 240, 0.15);
+    color: var(--accent-primary);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content-active {
+    display: block;
+}
+
 /* Progress checklist */
 .progress-wrapper {
     position: sticky;
