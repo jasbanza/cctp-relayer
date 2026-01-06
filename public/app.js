@@ -6,6 +6,9 @@ const { Connection, PublicKey, Transaction, TransactionInstruction, SystemProgra
 // ============ State ============
 let phantomWallet = null;
 let walletPublicKey = null;
+let activeTab = 'receive'; // 'send' | 'receive'
+let nobleWalletAddress = null;
+let nobleUsdcBalance = 0n;
 
 // ============ DOM Elements ============
 const elements = {
@@ -49,6 +52,30 @@ const elements = {
     
     // Logs
     logs: document.getElementById('logs'),
+
+    // Send (Noble) tab elements
+    nobleWalletStatus: document.getElementById('nobleWalletStatus'),
+    nobleWalletAddress: document.getElementById('nobleWalletAddress'),
+    nobleUsdcBalance: document.getElementById('nobleUsdcBalance'),
+    connectNobleWalletBtn: document.getElementById('connectNobleWalletBtn'),
+    sendDestChain: document.getElementById('sendDestChain'),
+    sendDestAddress: document.getElementById('sendDestAddress'),
+    usePhantomAddressBtn: document.getElementById('usePhantomAddressBtn'),
+    sendAmount: document.getElementById('sendAmount'),
+    sendAmountMaxBtn: document.getElementById('sendAmountMaxBtn'),
+    sendFromNobleBtn: document.getElementById('sendFromNobleBtn'),
+    goToReceiveBtn: document.getElementById('goToReceiveBtn'),
+};
+
+// Tab buttons and contents
+const tabs = {
+    send: document.getElementById('tab-send'),
+    receive: document.getElementById('tab-receive'),
+};
+
+const tabContents = {
+    send: document.getElementById('send-tab'),
+    receive: document.getElementById('receive-tab'),
 };
 
 // Progress steps
@@ -149,6 +176,14 @@ Object.entries(sections).forEach(([key, el]) => {
     });
 });
 
+// Make top-level tabs clickable
+if (tabs.send) {
+    tabs.send.addEventListener('click', () => setActiveTab('send'));
+}
+if (tabs.receive) {
+    tabs.receive.addEventListener('click', () => setActiveTab('receive'));
+}
+
 // Byte utilities for browsers (avoid Node Buffer)
 const textEncoder = new TextEncoder();
 
@@ -209,6 +244,171 @@ function getApiBase() {
     if (!raw) return '';
     // Strip trailing slashes
     return raw.replace(/\/+$/, '');
+}
+
+// ============ Noble (Keplr) Wallet ============
+async function connectNobleWallet() {
+    try {
+        if (!window.keplr || !window.getOfflineSigner) {
+            log('Keplr extension not found. Please install Keplr and refresh.', 'error');
+            return;
+        }
+
+        const chainId = 'noble-1';
+        log('Connecting to Keplr (Noble)...', 'info');
+        await window.keplr.enable(chainId);
+
+        const offlineSigner = window.getOfflineSigner(chainId);
+        const accounts = await offlineSigner.getAccounts();
+        if (!accounts || accounts.length === 0) {
+            throw new Error('No Noble accounts available in Keplr');
+        }
+
+        nobleWalletAddress = accounts[0].address;
+        elements.nobleWalletAddress.textContent =
+            nobleWalletAddress.substring(0, 10) +
+            '...' +
+            nobleWalletAddress.substring(nobleWalletAddress.length - 8);
+        elements.nobleWalletStatus.textContent = 'Connected';
+        elements.nobleWalletStatus.className = 'status-badge status-connected';
+
+        log(`Connected Noble wallet: ${nobleWalletAddress}`, 'success');
+
+        // Load Noble USDC balance
+        await loadNobleUsdcBalance();
+    } catch (error) {
+        log(`Failed to connect Keplr (Noble): ${error.message}`, 'error');
+    }
+}
+
+async function loadNobleUsdcBalance() {
+    if (!nobleWalletAddress) return;
+    const lcdBase = elements.nobleRpc?.value?.trim();
+    if (!lcdBase) {
+        log('Noble LCD API URL is empty; cannot load Noble balance.', 'error');
+        return;
+    }
+
+    const url = `${lcdBase}/cosmos/bank/v1beta1/balances/${nobleWalletAddress}`;
+    log('Fetching Noble USDC balance...', 'info');
+
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const balances = data.balances || [];
+
+        // Noble native USDC denom (uusdc)
+        const usdc = balances.find((b) => b.denom === 'uusdc');
+        if (!usdc) {
+            nobleUsdcBalance = 0n;
+        } else {
+            nobleUsdcBalance = BigInt(usdc.amount || '0');
+        }
+
+        const human = Number(nobleUsdcBalance) / 1_000_000;
+        elements.nobleUsdcBalance.value = human.toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 6,
+        });
+
+        log(`Noble USDC balance: ${human}`, 'info');
+        updateSendFromNobleButton();
+    } catch (error) {
+        log(`Failed to fetch Noble USDC balance: ${error.message}`, 'error');
+        elements.nobleUsdcBalance.value = 'Error';
+    }
+}
+
+function useMaxSendAmount() {
+    if (!elements.sendAmount) return;
+    if (nobleUsdcBalance <= 0n) {
+        log('No Noble USDC balance available for Max.', 'warning');
+        return;
+    }
+    const human = Number(nobleUsdcBalance) / 1_000_000;
+    elements.sendAmount.value = human.toString();
+}
+
+function usePhantomAddressForDestination() {
+    if (!elements.sendDestAddress) return;
+    if (!walletPublicKey) {
+        log('Connect Phantom first on the Receive tab to use its address.', 'warning');
+        return;
+    }
+    elements.sendDestAddress.value = walletPublicKey.toString();
+    log('Filled destination address from connected Phantom wallet.', 'info');
+}
+
+function updateSendFromNobleButton() {
+    if (!elements.sendFromNobleBtn) return;
+    const hasWallet = !!nobleWalletAddress;
+    const dest = elements.sendDestAddress ? elements.sendDestAddress.value.trim() : '';
+    const amtStr = elements.sendAmount ? elements.sendAmount.value.trim() : '';
+    const amt = Number(amtStr);
+    const validAmt = !Number.isNaN(amt) && amt > 0;
+    elements.sendFromNobleBtn.disabled = !(hasWallet && dest && validAmt);
+}
+
+async function sendFromNoble() {
+    if (!nobleWalletAddress) {
+        log('Connect Keplr (Noble) first.', 'error');
+        return;
+    }
+    if (!elements.sendDestAddress || !elements.sendAmount) {
+        log('Destination address and amount are required.', 'error');
+        return;
+    }
+
+    const destChain = elements.sendDestChain?.value || 'solana';
+    const destAddress = elements.sendDestAddress.value.trim();
+    const amountStr = elements.sendAmount.value.trim();
+    const amount = Number(amountStr);
+
+    if (!destAddress) {
+        log('Please enter a destination address for Solana.', 'error');
+        return;
+    }
+    if (Number.isNaN(amount) || amount <= 0) {
+        log('Please enter a valid positive USDC amount.', 'error');
+        return;
+    }
+
+    log('--- Noble send (burn) flow is experimental and not yet broadcasting on-chain. ---', 'warning');
+    log(`Noble from: ${nobleWalletAddress}`, 'info');
+    log(`Destination: ${destChain} -> ${destAddress}`, 'info');
+    log(`Amount: ${amount} USDC`, 'info');
+    log(
+        'Tx construction & broadcast for the Noble CCTP burn message is not yet implemented. ' +
+            'Use Noble CLI or official tooling to originate the burn, then come back to the Receive tab to complete the mint on Solana.',
+        'warning'
+    );
+}
+
+// ============ Tab Switching ============
+function setActiveTab(nextTab) {
+    if (nextTab !== 'send' && nextTab !== 'receive') return;
+    activeTab = nextTab;
+
+    Object.entries(tabs).forEach(([key, btn]) => {
+        if (!btn) return;
+        if (key === nextTab) {
+            btn.classList.add('tab-button-active');
+        } else {
+            btn.classList.remove('tab-button-active');
+        }
+    });
+
+    Object.entries(tabContents).forEach(([key, el]) => {
+        if (!el) return;
+        if (key === nextTab) {
+            el.classList.add('tab-content-active');
+        } else {
+            el.classList.remove('tab-content-active');
+        }
+    });
 }
 
 // Update global CCTP explorer link from Noble tx hash
@@ -526,14 +726,21 @@ async function relayToSolana() {
             messageTransmitterProgramId
         );
 
-        // For Noble → Solana USDC on mainnet, the used_nonces PDA for this bucket
-        // is stable and known from on-chain introspection. To keep the UI simple
-        // and robust, we hard-code it here.
-        const usedNonces = new PublicKey('CPG84dn5W4kmtwGKdCBwnbe34zaMGDJQrHPCu5bNHyJ1');
-        log(`Using hard-coded UsedNonces account: ${usedNonces.toString()}`, 'info');
-
-        // Buffer for source domain (still used for other PDAs below)
+        // Buffer for source domain (used for multiple PDA derivations)
         const sourceDomainBuffer = u32ToBytesLE(sourceDomain);
+
+        // Derive UsedNonces PDA dynamically based on source domain and nonce
+        // The nonce is grouped into buckets of 6400 (0x1900) nonces each
+        // PDA seeds: "used_nonces" + source_domain (LE u32) + first_nonce_in_bucket (LE u64)
+        const NONCES_PER_ACCOUNT = 6400n;
+        const nonceBucket = (nonceValue / NONCES_PER_ACCOUNT) * NONCES_PER_ACCOUNT;
+        const firstNonceBuffer = u64ToBytesLE(nonceBucket);
+        
+        const [usedNonces] = PublicKey.findProgramAddressSync(
+            [bytesFromString('used_nonces'), sourceDomainBuffer, firstNonceBuffer],
+            messageTransmitterProgramId
+        );
+        log(`Derived UsedNonces PDA for nonce bucket ${nonceBucket}: ${usedNonces.toString()}`, 'info');
         
         // TokenMessenger state PDA
         const [tokenMessenger] = PublicKey.findProgramAddressSync(
@@ -595,15 +802,18 @@ async function relayToSolana() {
         // Token program
         const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
         
-        // Event authority PDA for Anchor events (hard-coded for TokenMessengerMinter)
-        const eventAuthority = new PublicKey('6mH8scevHQJsyyp1qxu8kyAapHuzEE67mtjFDJZjSbQW');
+        // Event authority PDA for Anchor events (derived from MessageTransmitter program)
+        const [eventAuthority] = PublicKey.findProgramAddressSync(
+            [bytesFromString('__event_authority')],
+            messageTransmitterProgramId
+        );
 
         // Log all remaining accounts that go into the instruction to help match Left/Right in errors
         log(`localToken: ${localToken.toString()}`, 'info');
         log(`tokenPair: ${tokenPair.toString()}`, 'info');
         log(`custodyToken: ${custodyToken.toString()}`, 'info');
         log(`TOKEN_PROGRAM_ID: ${TOKEN_PROGRAM_ID.toString()}`, 'info');
-        log(`eventAuthority (hard-coded): ${eventAuthority.toString()}`, 'info');
+        log(`eventAuthority (derived): ${eventAuthority.toString()}`, 'info');
         
         // Build the receiveMessage instruction
         // Discriminator for receive_message in MessageTransmitter
@@ -657,7 +867,17 @@ async function relayToSolana() {
             data: instructionData,
         });
         
-        const transaction = new Transaction().add(instruction);
+        // SPL Memo Program for adding a distinct app identifier
+        const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
+        const memoText = `CCTP Relay via github.com/jasbanza/cctp-relayer | Noble→Solana | nonce:${nonceValue}`;
+        const memoInstruction = new TransactionInstruction({
+            keys: [{ pubkey: walletPublicKey, isSigner: true, isWritable: false }],
+            programId: MEMO_PROGRAM_ID,
+            data: bytesFromString(memoText),
+        });
+        
+        const transaction = new Transaction().add(instruction).add(memoInstruction);
+        log(`Adding memo: "${memoText}"`, 'info');
         
         // Get recent blockhash - try proxy first, fall back to direct RPC
         let blockhash, lastValidBlockHeight;
@@ -768,6 +988,35 @@ elements.fetchAttestationBtn.addEventListener('click', fetchAttestation);
 elements.connectWalletBtn.addEventListener('click', toggleWallet);
 elements.relayBtn.addEventListener('click', relayToSolana);
 elements.clearLogsBtn.addEventListener('click', clearLogs);
+
+// Noble send tab
+if (elements.connectNobleWalletBtn) {
+    elements.connectNobleWalletBtn.addEventListener('click', connectNobleWallet);
+}
+if (elements.sendAmountMaxBtn) {
+    elements.sendAmountMaxBtn.addEventListener('click', useMaxSendAmount);
+}
+if (elements.usePhantomAddressBtn) {
+    elements.usePhantomAddressBtn.addEventListener('click', usePhantomAddressForDestination);
+}
+if (elements.sendFromNobleBtn) {
+    elements.sendFromNobleBtn.addEventListener('click', sendFromNoble);
+}
+
+// Keep Noble send button state in sync as user types
+if (elements.sendDestAddress) {
+    elements.sendDestAddress.addEventListener('input', updateSendFromNobleButton);
+}
+if (elements.sendAmount) {
+    elements.sendAmount.addEventListener('input', updateSendFromNobleButton);
+}
+
+if (elements.goToReceiveBtn) {
+    elements.goToReceiveBtn.addEventListener('click', () => {
+        setActiveTab('receive');
+        scrollToSection('section-source');
+    });
+}
 
 // Update relay button when fields change
 elements.messageHex.addEventListener('input', () => {
