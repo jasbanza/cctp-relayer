@@ -13,6 +13,128 @@
             <p class="subtitle">Manually relay USDC transfers from Noble to Solana</p>
         </header>
 
+        <!-- Mode Tabs -->
+        <nav class="tab-nav" aria-label="Mode">
+            <button type="button" class="tab-button" id="tab-send">
+                Send (Noble → Solana)
+            </button>
+            <button type="button" class="tab-button tab-button-active" id="tab-receive">
+                Receive (Solana mint)
+            </button>
+        </nav>
+
+        <!-- Send Tab: Noble -> Solana -->
+        <div id="send-tab" class="tab-content">
+            <section class="card">
+                <h2>Send from Noble (burn USDC)</h2>
+                <p class="help-text">
+                    This is an advanced tool for originating CCTP messages directly on Noble. Only use amounts you are
+                    comfortable testing with. You will still need to complete the flow on the <strong>Receive</strong> tab
+                    to mint USDC on Solana.
+                </p>
+
+                <!-- Noble wallet -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Noble (Keplr) Wallet</label>
+                        <div class="wallet-status">
+                            <span id="nobleWalletStatus" class="status-badge status-disconnected">Disconnected</span>
+                            <span id="nobleWalletAddress" class="wallet-address"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button id="connectNobleWalletBtn" class="btn btn-primary">Connect Keplr (Noble)</button>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nobleUsdcBalance">Noble USDC Balance</label>
+                        <input type="text" id="nobleUsdcBalance" readonly placeholder="Connect wallet to load balance">
+                    </div>
+                </div>
+
+                <!-- Transfer configuration -->
+                <h3>Transfer configuration</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Source Chain</label>
+                        <input type="text" value="Noble (Cosmos)" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="sendDestChain">Destination Chain</label>
+                        <select id="sendDestChain">
+                            <option value="solana">Solana</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="sendDestAddress">Destination Address (Solana)</label>
+                        <div class="input-with-button">
+                            <input
+                                type="text"
+                                id="sendDestAddress"
+                                placeholder="Solana recipient address (base58)..."
+                            >
+                            <button id="usePhantomAddressBtn" class="btn btn-secondary" type="button">
+                                Use connected Phantom
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sendAmount">Amount (USDC)</label>
+                        <div class="input-with-button">
+                            <input
+                                type="number"
+                                id="sendAmount"
+                                min="0"
+                                step="0.000001"
+                                placeholder="0.0"
+                            >
+                            <button id="sendAmountMaxBtn" class="btn btn-secondary" type="button">
+                                Max
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Review & send -->
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Review</label>
+                        <p class="help-text">
+                            You are burning USDC on Noble and preparing a CCTP message to mint USDC on Solana for the
+                            specified recipient. Gas/fees are paid on Noble in NOBLE.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <button id="sendFromNobleBtn" class="btn btn-success btn-large" disabled>
+                            Send from Noble
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <button id="goToReceiveBtn" class="btn btn-secondary btn-small" type="button">
+                            Go to Receive tab to complete Solana mint
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Receive Tab: existing manual relay flow -->
+        <div id="receive-tab" class="tab-content tab-content-active">
+
         <!-- Progress Checklist + Global Status -->
         <div class="progress-wrapper">
             <nav class="progress" aria-label="CCTP relay progress">
@@ -243,7 +365,8 @@
                 <a href="https://www.buymeacoffee.com/jasbanza" target="_blank">Buy Me a Coffee (@jasbanza)</a>
             </p>
         </footer>
-    </div>
+        </div> <!-- /receive-tab -->
+    </div> <!-- /container -->
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
