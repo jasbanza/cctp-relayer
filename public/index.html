@@ -8,29 +8,221 @@
 </head>
 <body>
     <div class="container">
+        <!-- Theme Toggle (top-right corner, vertical) -->
+        <div class="theme-toggle-corner">
+            <!-- Standard -->
+            <div class="theme-group">
+                <button type="button" class="theme-btn" data-theme="light" title="Light Mode">☀️</button>
+                <button type="button" class="theme-btn" data-theme="dark" title="Dark Mode">🌙</button>
+            </div>
+            <hr class="theme-separator">
+            <!-- Fun -->
+            <div class="theme-group">
+                <button type="button" class="theme-btn" data-theme="8bit" title="8-bit Mode">👾</button>
+                <button type="button" class="theme-btn" data-theme="matrix" title="Matrix">💊</button>
+            </div>
+            <hr class="theme-separator">
+            <!-- Mac / Linux -->
+            <div class="theme-group">
+                <button type="button" class="theme-btn" data-theme="mac" title="macOS">🍎</button>
+                <button type="button" class="theme-btn" data-theme="ubuntu" title="Ubuntu">🐧</button>
+            </div>
+            <hr class="theme-separator">
+            <!-- Windows (oldest to newest) -->
+            <div class="theme-group">
+                <button type="button" class="theme-btn" data-theme="win31" title="Windows 3.1">📟</button>
+                <button type="button" class="theme-btn" data-theme="win95" title="Windows 95">🪟</button>
+                <button type="button" class="theme-btn" data-theme="winxp" title="Windows XP">🏞️</button>
+            </div>
+        </div>
+
+        <!-- Transfer Progress Modal -->
+        <div id="progressModal" class="modal-overlay" style="display: none;">
+            <div class="progress-modal">
+                <!-- In Progress State -->
+                <div id="progressModalInProgress" class="modal-state">
+                    <h2 class="modal-title">Transfer in Progress</h2>
+                    <p class="modal-subtitle">
+                        Your USDC is being transferred from 
+                        <span class="chain-badge noble">Noble</span> to 
+                        <span class="chain-badge solana">Solana</span>
+                    </p>
+                    
+                    <div class="progress-steps-modal">
+                        <div class="progress-step-item" id="modalStep1">
+                            <div class="step-icon" id="modalStep1Icon">
+                                <span class="spinner"></span>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-header">
+                                    <span class="step-title">Burning USDC</span>
+                                    <span class="step-status" id="modalStep1Status">Pending</span>
+                                </div>
+                                <p class="step-description" id="modalStep1Desc">Preparing Noble transaction...</p>
+                                <a class="step-hash" id="modalStep1Hash" href="#" target="_blank" style="display: none;"></a>
+                            </div>
+                        </div>
+                        
+                        <div class="progress-step-item" id="modalStep2">
+                            <div class="step-icon" id="modalStep2Icon">
+                                <span class="step-pending">○</span>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-header">
+                                    <span class="step-title">Attesting Transfer</span>
+                                    <span class="step-status" id="modalStep2Status">Waiting</span>
+                                </div>
+                                <p class="step-description" id="modalStep2Desc">Waiting for Circle's attestation...</p>
+                                <a class="step-hash" id="modalStep2Hash" href="#" target="_blank" style="display: none;"></a>
+                            </div>
+                        </div>
+                        
+                        <div class="progress-step-item" id="modalStep3">
+                            <div class="step-icon" id="modalStep3Icon">
+                                <span class="step-pending">○</span>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-header">
+                                    <span class="step-title">Minting USDC</span>
+                                    <span class="step-status" id="modalStep3Status">Waiting</span>
+                                </div>
+                                <p class="step-description" id="modalStep3Desc">Minting USDC on Solana...</p>
+                                <a class="step-hash" id="modalStep3Hash" href="#" target="_blank" style="display: none;"></a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Receiver</span>
+                            <span class="detail-value" id="modalReceiver">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Amount</span>
+                            <span class="detail-value" id="modalAmount">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Fee</span>
+                            <span class="detail-value" id="modalFee">0.5 <span class="usdc-icon">💲</span></span>
+                        </div>
+                    </div>
+                    
+                    <p class="modal-footer-text">You may close this window - your USDC will arrive shortly.</p>
+                    <button type="button" class="btn btn-secondary modal-close-btn" id="closeProgressModal">Close</button>
+                </div>
+                
+                <!-- Complete State -->
+                <div id="progressModalComplete" class="modal-state" style="display: none;">
+                    <div class="success-icon">✓</div>
+                    <h2 class="modal-title">Transfer Complete</h2>
+                    <p class="modal-subtitle">
+                        Your USDC has been successfully bridged from 
+                        <span class="chain-badge noble">Noble</span> to 
+                        <span class="chain-badge solana">Solana</span>
+                    </p>
+                    
+                    <div class="modal-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Receiver</span>
+                            <span class="detail-value" id="modalReceiverComplete">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Amount</span>
+                            <span class="detail-value" id="modalAmountComplete">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Fee</span>
+                            <span class="detail-value" id="modalFeeComplete">0.5 <span class="usdc-icon">💲</span></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Receipt</span>
+                            <a class="detail-value detail-link" id="modalReceipt" href="#" target="_blank">-</a>
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-primary" id="bridgeAgainBtn">Bridge Again</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phantom Account Change Notification -->
+        <div id="phantomChangedNotice" class="wallet-change-notice" style="display: none;">
+            <span class="notice-icon">👻</span>
+            <span class="notice-text">Phantom profile changed to: <strong id="phantomNewAddress"></strong></span>
+            <button type="button" id="useUpdatedPhantom" class="btn btn-small btn-primary">Use this address</button>
+            <button type="button" id="dismissPhantomNotice" class="btn btn-small btn-secondary">Dismiss</button>
+        </div>
+
         <header>
             <h1>CCTP Relayer</h1>
-            <p class="subtitle">Manually relay USDC transfers from Noble to Solana</p>
+            <p class="subtitle">Self-service USDC relay from Noble to Solana <span id="statsCounter" class="stats-counter"></span></p>
         </header>
 
-        <!-- Mode Tabs -->
-        <nav class="tab-nav" aria-label="Mode">
+        <!-- About / Splash Section -->
+        <section class="card about-card">
+            <details id="aboutDetails">
+                <summary class="about-toggle">
+                    <span class="about-icon">ℹ️</span>
+                    <span>What is this? Why do I need it?</span>
+                </summary>
+                <div class="about-content">
+                    <h3>Self-Service vs Auto-Relaying</h3>
+                    <p>
+                        Most CCTP bridges (like <strong>cctp.money</strong> or <strong>Noble Express</strong>) use 
+                        <em>auto-relayers</em> — background services that automatically complete your transfer after 
+                        you burn USDC on the source chain.
+                    </p>
+                    
+                    <h4>⚠️ The Problem with Auto-Relayers</h4>
+                    <ul>
+                        <li><strong>Single point of failure:</strong> If the relayer service goes down, your funds can get stuck mid-transfer</li>
+                        <li><strong>No recovery options:</strong> You're dependent on the service provider to fix issues</li>
+                        <li><strong>Opaque process:</strong> Hard to debug what went wrong when transfers fail</li>
+                        <li><strong>Rate limits & congestion:</strong> During high traffic, relayers may delay or fail</li>
+                    </ul>
+                    
+                    <h4>✅ Self-Service Relaying (This Tool)</h4>
+                    <ul>
+                        <li><strong>You control the relay:</strong> Sign and submit the Solana transaction yourself</li>
+                        <li><strong>Recovery anytime:</strong> Resume stuck transfers days or weeks later</li>
+                        <li><strong>Full transparency:</strong> See every step of the CCTP process</li>
+                        <li><strong>Works with any source*:</strong> Recover failed transfers from other services</li>
+                    </ul>
+                    
+                    <p class="about-disclaimer">
+                        <strong>*</strong> Some CCTP transfers set a <code>destination_caller</code> restriction, limiting 
+                        who can complete the relay. This could be the receiver's wallet, a specific relayer service, or 
+                        another designated address. If you encounter this error, you'll need to use the wallet that was 
+                        specified as the authorized caller.
+                    </p>
+                    
+                    <p class="about-note">
+                        <strong>How it works:</strong> After burning USDC on Noble, Circle's attestation service signs the message. 
+                        This tool lets you fetch that attestation and submit the final "mint" transaction to Solana yourself.
+                    </p>
+                </div>
+            </details>
+        </section>
+
+        <!-- Mode Tabs (Send hidden - use Noble Express or cctp.money for burns) -->
+        <nav class="tab-nav" aria-label="Mode" style="display: none;">
             <button type="button" class="tab-button" id="tab-send">
-                Send (Noble → Solana)
+                ↑ Send
             </button>
             <button type="button" class="tab-button tab-button-active" id="tab-receive">
-                Receive (Solana mint)
+                ↓ Receive
             </button>
         </nav>
 
-        <!-- Send Tab: Noble -> Solana -->
-        <div id="send-tab" class="tab-content">
+        <!-- Send Tab: Noble Burn (Hidden - use external services) -->
+        <div id="send-tab" class="tab-content" style="display: none;">
             <section class="card">
                 <h2>Send from Noble (burn USDC)</h2>
                 <p class="help-text">
-                    This is an advanced tool for originating CCTP messages directly on Noble. Only use amounts you are
-                    comfortable testing with. You will still need to complete the flow on the <strong>Receive</strong> tab
-                    to mint USDC on Solana.
+                    <strong>⚠️ Experimental:</strong> Direct Noble transactions may fail due to encoding requirements.
+                    If this doesn't work, use <a href="https://express.noble.xyz" target="_blank">Noble Express</a> or 
+                    <a href="https://cctp.money" target="_blank">cctp.money</a> to initiate the burn, 
+                    then complete the relay on the <strong>Receive</strong> tab.
                 </p>
 
                 <!-- Noble wallet -->
@@ -79,7 +271,7 @@
                                 placeholder="Solana recipient address (base58)..."
                             >
                             <button id="usePhantomAddressBtn" class="btn btn-secondary" type="button">
-                                Use connected Phantom
+                                Use Phantom Address
                             </button>
                         </div>
                     </div>
@@ -109,7 +301,7 @@
                         <label>Review</label>
                         <p class="help-text">
                             You are burning USDC on Noble and preparing a CCTP message to mint USDC on Solana for the
-                            specified recipient. Gas/fees are paid on Noble in NOBLE.
+                            specified recipient. A <strong>0.5 USDC relay fee</strong> will be charged in addition to your transfer amount.
                         </p>
                     </div>
                 </div>
@@ -117,7 +309,7 @@
                 <div class="form-row">
                     <div class="form-group full-width">
                         <button id="sendFromNobleBtn" class="btn btn-success btn-large" disabled>
-                            Send from Noble
+                            Send from Noble (+ 0.5 USDC fee)
                         </button>
                     </div>
                 </div>
@@ -129,42 +321,99 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Advanced Options Toggle -->
+                <div class="advanced-section">
+                    <label class="advanced-toggle">
+                        <input type="checkbox" id="sendAdvancedToggle"> Show advanced options
+                    </label>
+                </div>
+
+                <!-- Advanced Options (hidden by default) -->
+                <div id="sendAdvancedOptions" class="advanced-options" style="display: none;">
+                    <hr class="section-divider">
+                    <h3>Advanced Configuration</h3>
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="sendNobleRestApi">Noble REST API</label>
+                            <input type="text" id="sendNobleRestApi" value="https://rest.cosmos.directory/noble" placeholder="https://rest.cosmos.directory/noble">
+                        </div>
+                    </div>
+                    <p class="help-text">
+                        Override the Noble LCD API endpoint used for querying balances and broadcasting transactions.
+                        Use this if the default endpoint is slow or unavailable.
+                    </p>
+                </div>
             </section>
         </div>
 
         <!-- Receive Tab: existing manual relay flow -->
         <div id="receive-tab" class="tab-content tab-content-active">
 
+        <!-- Recovery Message + Lookup Section -->
+        <section class="card recovery-card">
+            <h2>🔍 Find Your Pending Transfer</h2>
+            <p class="recovery-message">
+                Complete any pending CCTP transfer — works for stuck/failed transfers from 
+                <strong>cctp.money</strong>, <strong>Noble Express</strong>, or any other relaying service.
+            </p>
+            <div class="lookup-section">
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="lookupTxHash">Noble Transaction Hash</label>
+                        <div class="input-with-button">
+                            <input type="text" id="lookupTxHash" placeholder="Enter Noble tx hash to find transfer...">
+                            <button id="lookupByTxBtn" class="btn btn-primary">Find Transfer</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="lookup-divider">— OR —</div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="lookupAddress">Solana Destination Address</label>
+                        <div class="input-with-button">
+                            <input type="text" id="lookupAddress" placeholder="Enter Solana address to find pending transfers...">
+                            <button id="lookupByAddressBtn" class="btn btn-secondary">Search Pending</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="lookupResults" class="lookup-results" style="display: none;"></div>
+            </div>
+        </section>
+
         <!-- Progress Checklist + Global Status -->
         <div class="progress-wrapper">
             <nav class="progress" aria-label="CCTP relay progress">
-                <button type="button" class="progress-step" id="step-config">
-                    <span class="step-index">1</span>
-                    <span class="step-label">Configure</span>
+                <button type="button" class="progress-step" id="step-config" style="display: none;">
+                    <span class="step-index">⚙</span>
+                    <span class="step-label">Config</span>
                 </button>
                 <button type="button" class="progress-step" id="step-source">
-                    <span class="step-index">2</span>
+                    <span class="step-index">1</span>
                     <span class="step-label">Source tx</span>
                 </button>
                 <button type="button" class="progress-step" id="step-attestation">
-                    <span class="step-index">3</span>
+                    <span class="step-index">2</span>
                     <span class="step-label">Attestation</span>
                 </button>
                 <button type="button" class="progress-step" id="step-relay">
-                    <span class="step-index">4</span>
+                    <span class="step-index">3</span>
                     <span class="step-label">Relay</span>
                 </button>
             </nav>
             <div class="status-bar">
+                <label class="advanced-toggle">
+                    <input type="checkbox" id="advancedToggle"> Show advanced options
+                </label>
                 <span class="status-label">CCTP Explorer:</span>
                 <a id="viewOnExplorer" href="#" target="_blank" class="status-link" style="display: none;">Open transaction status</a>
                 <span id="explorerHint" class="status-hint">Paste Noble tx hash to view on CCTP Explorer</span>
             </div>
         </div>
 
-        <!-- Chain Configuration + Solana Programs -->
-        <section id="section-config" class="card">
-            <h2>1. Configuration & Solana Programs</h2>
+        <!-- Chain Configuration + Solana Programs (Advanced) -->
+        <section id="section-config" class="card" style="display: none;">
+            <h2>Configuration & Solana Programs (Advanced)</h2>
             <div class="form-row">
                 <div class="form-group">
                     <label for="sourceChain">Source Chain</label>
@@ -191,8 +440,8 @@
             </div>
             <div class="form-row">
                 <div class="form-group full-width">
-                    <label for="nobleRpc">Noble LCD API</label>
-                    <input type="text" id="nobleRpc" value="https://noble-api.polkachu.com">
+                    <label for="nobleRestApi">Noble REST API</label>
+                    <input type="text" id="nobleRestApi" value="https://rest.cosmos.directory/noble">
                 </div>
             </div>
             <div class="form-row">
@@ -241,7 +490,7 @@
 
         <!-- Source Transaction -->
         <section id="section-source" class="card">
-            <h2>2. Source Transaction</h2>
+            <h2><span class="section-step-num">1</span>. Source Transaction</h2>
             <div class="form-row">
                 <div class="form-group full-width">
                     <label for="nobleTxHash">Noble Transaction Hash</label>
@@ -270,13 +519,13 @@
                 <strong>Manual steps:</strong>
                 <a href="https://www.mintscan.io/noble" target="_blank">Mintscan (Noble Explorer)</a> |
                 <a href="https://base64.guru/converter/decode/hex" target="_blank">Base64 to Hex Converter</a> |
-                <a href="https://noble-api.polkachu.com/cosmos/tx/v1beta1/txs/" target="_blank">Noble LCD API</a>
+                <a href="https://rest.cosmos.directory/noble/cosmos/tx/v1beta1/txs/" target="_blank">Noble REST API</a>
             </p>
         </section>
 
         <!-- Attestation -->
         <section id="section-attestation" class="card">
-            <h2>3. Attestation</h2>
+            <h2><span class="section-step-num">2</span>. Attestation</h2>
             <div class="form-row">
                 <div class="form-group full-width">
                     <label for="messageHash">Message Hash (keccak256)</label>
@@ -311,7 +560,7 @@
 
         <!-- Wallet & Relay -->
         <section id="section-relay" class="card">
-            <h2>4. Relay to Solana</h2>
+            <h2><span class="section-step-num">3</span>. Relay to Solana</h2>
             <div class="form-row">
                 <div class="form-group">
                     <label>Phantom Wallet</label>
