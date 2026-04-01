@@ -183,7 +183,7 @@
                     
                     <h4>✅ Self-Service Relaying (This Tool)</h4>
                     <ul>
-                        <li><strong>You control the relay:</strong> Sign and submit the Solana transaction yourself</li>
+                        <li><strong>You control the relay:</strong> Sign and submit the destination chain transaction yourself</li>
                         <li><strong>Recovery anytime:</strong> Resume stuck transfers days or weeks later</li>
                         <li><strong>Full transparency:</strong> See every step of the CCTP process</li>
                         <li><strong>Works with any source*:</strong> Recover failed transfers from other services</li>
@@ -198,7 +198,7 @@
                     
                     <p class="about-note">
                         <strong>How it works:</strong> After burning USDC on Noble, Circle's attestation service signs the message. 
-                        This tool lets you fetch that attestation and submit the final "mint" transaction to Solana yourself.
+                        This tool lets you fetch that attestation and submit the final "mint" transaction to the destination chain yourself.
                     </p>
                 </div>
             </details>
@@ -306,7 +306,7 @@
                     <div class="form-group full-width">
                         <label>Review</label>
                         <p class="help-text">
-                            You are burning USDC on Noble and preparing a CCTP message to mint USDC on Solana for the
+                            You are burning USDC on Noble and preparing a CCTP message to mint USDC on the destination chain for the
                             specified recipient. A <strong>0.5 USDC relay fee</strong> will be charged in addition to your transfer amount.
                         </p>
                     </div>
@@ -323,7 +323,7 @@
                 <div class="form-row">
                     <div class="form-group full-width">
                         <button id="goToReceiveBtn" class="btn btn-secondary btn-small" type="button">
-                            Go to Receive tab to complete Solana mint
+                            Go to Receive tab to complete relay
                         </button>
                     </div>
                 </div>
@@ -356,8 +356,8 @@
         <!-- Receive Tab: existing manual relay flow -->
         <div id="receive-tab" class="tab-content tab-content-active">
 
-        <!-- Recovery Message + Lookup Section -->
-        <section class="card recovery-card">
+        <!-- Recovery Message + Lookup Section (hidden — Circle API unreliable; users paste tx hash in Step 1) -->
+        <section class="card recovery-card" style="display: none;">
             <h2>🔍 Find Your Pending Transfer</h2>
             <p class="recovery-message">
                 Complete any pending CCTP transfer — works for stuck/failed transfers from 
