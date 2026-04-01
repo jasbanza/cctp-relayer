@@ -2451,31 +2451,34 @@ async function relayToEvm() {
     } catch (error) {
         console.error('Full error:', error);
 
-        // Detect destination_caller restriction
+        // Extract the revert reason from nested ethers.js error
         const errMsg = error.message || '';
-        const errData = error.error?.data?.message || error.error?.message || '';
-        const isCallerError = errMsg.includes('Invalid caller for message')
-            || errData.includes('Invalid caller for message');
+        const revertReason = error.error?.data?.message || error.error?.message || '';
+        const combined = errMsg + ' ' + revertReason;
 
-        if (isCallerError) {
+        if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
+            log('Transaction was rejected by user.', 'warning');
+            updateModalStep(3, 'pending', 'Failed', 'Transaction rejected by user.');
+        } else if (combined.includes('Invalid caller for message')) {
             const requiredCaller = extractDestCaller(messageHex);
             log('This CCTP message has a destination_caller restriction.', 'error');
             if (requiredCaller) {
                 log(`Required caller: ${requiredCaller}`, 'error');
                 log(`Your wallet:     ${evmAddress}`, 'info');
-                if (requiredCaller.toLowerCase() !== evmAddress.toLowerCase()) {
-                    log('You must connect the wallet that matches the required caller address to complete this relay.', 'warning');
-                    log('This is typically set by the bridge/app that initiated the burn (e.g. cctp.money, Noble Express).', 'info');
-                }
+                log('You must connect the wallet that matches the required caller to complete this relay.', 'warning');
+                log('This is typically set by the bridge/app that initiated the burn (e.g. cctp.money, Noble Express).', 'info');
             } else {
-                log('Only the designated wallet can complete this relay. Check which address was set as destination_caller.', 'warning');
+                log('Only the designated wallet can complete this relay.', 'warning');
             }
             updateModalStep(3, 'pending', 'Failed', 'Destination caller restriction — wrong wallet.');
-        } else if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
-            log('Transaction was rejected by user.', 'warning');
-            updateModalStep(3, 'pending', 'Failed', 'Transaction rejected by user.');
+        } else if (combined.includes('Nonce already used') || combined.includes('already used')) {
+            log('This message has already been relayed (nonce already used).', 'warning');
+            log('The USDC should already be in the destination wallet.', 'info');
+            updateModalStep(3, 'pending', 'Already Relayed', 'This transfer was already completed.');
         } else {
-            log(`Relay failed: ${errMsg}`, 'error');
+            // Show a clean version of the error, not the raw gas estimation noise
+            const cleanReason = revertReason || errMsg.match(/reason="([^"]+)"/)?.[1] || errMsg;
+            log(`Relay failed: ${cleanReason}`, 'error');
             updateModalStep(3, 'pending', 'Failed', 'Relay transaction failed. Check logs for details.');
         }
     }
