@@ -754,6 +754,24 @@ function detectDestDomainFromMessage(messageHex) {
     }
 }
 
+// Extract the destinationCaller from CCTP message bytes
+// Message layout: version(4) + srcDomain(4) + dstDomain(4) + nonce(8) + sender(32) + recipient(32) + destCaller(32) + body(...)
+// destCaller at offset 84..116; for EVM the 20-byte address is in the last 20 bytes (right-padded zeros are left-padded here)
+function extractDestCaller(messageHex) {
+    try {
+        const bytes = hexToBytes(messageHex);
+        if (bytes.length < 116) return null;
+        const callerBytes = bytes.slice(84, 116);
+        const isZero = callerBytes.every(b => b === 0);
+        if (isZero) return null; // bytes32(0) means any caller is allowed
+        // EVM address is last 20 bytes of the 32-byte field
+        const addrBytes = callerBytes.slice(12, 32);
+        return '0x' + Array.from(addrBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+        return null;
+    }
+}
+
 function getApiBase() {
     if (!elements.apiBase) return '';
     const raw = elements.apiBase.value.trim();
@@ -1559,7 +1577,7 @@ async function fetchNobleTx() {
             setStepState('source', 'done');
             setSectionCompleted('source', { collapse: true });
             setStepState('attestation', 'active');
-            log('Next step: fetch attestation (Step 3).', 'info');
+            log('Next step: fetch attestation (Step 2).', 'info');
             scrollToSection('section-attestation');
         } else {
             log('MessageSent event not found in transaction. Check events manually.', 'warning');
@@ -1676,7 +1694,9 @@ async function fetchAttestation() {
             setStepState('attestation', 'done');
             setSectionCompleted('attestation', { collapse: true });
             setStepState('relay', 'active');
-            log('Next step: connect Phantom and relay on Solana (Step 4).', 'info');
+            const destLabel = getDestChainLabel(selectedDestChain);
+            const walletHint = isEvmDest(selectedDestChain) ? 'connect EVM wallet' : 'connect Phantom';
+            log(`Next step: ${walletHint} and relay to ${destLabel} (Step 3).`, 'info');
             scrollToSection('section-relay');
             
             // Auto-relay if wallet is connected
@@ -2379,6 +2399,21 @@ async function relayToEvm() {
         const relayAmountUsdc = Number(amountBigInt) / 1_000_000;
 
         log(`Relay amount: ${relayAmountUsdc} USDC`, 'info');
+
+        // Pre-check: warn if destination_caller restriction will reject this wallet
+        const requiredCaller = extractDestCaller(messageHex);
+        if (requiredCaller) {
+            const currentAddr = await evmSigner.getAddress();
+            if (requiredCaller.toLowerCase() !== currentAddr.toLowerCase()) {
+                log(`Warning: This message has a destination_caller restriction.`, 'warning');
+                log(`Required caller: ${requiredCaller}`, 'error');
+                log(`Your wallet:     ${currentAddr}`, 'info');
+                log('The transaction will likely fail. Switch to the required wallet, or proceed if you want to try anyway.', 'warning');
+            } else {
+                log(`Destination caller matches your wallet.`, 'success');
+            }
+        }
+
         log('Requesting signature from wallet...', 'info');
 
         const tx = await contract.receiveMessage(messageHex, attestationHex);
@@ -2414,14 +2449,35 @@ async function relayToEvm() {
         setSectionCompleted('relay', { collapse: true });
 
     } catch (error) {
-        log(`Relay failed: ${error.message}`, 'error');
         console.error('Full error:', error);
 
-        if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
-            log('Transaction was rejected by user.', 'warning');
-        }
+        // Detect destination_caller restriction
+        const errMsg = error.message || '';
+        const errData = error.error?.data?.message || error.error?.message || '';
+        const isCallerError = errMsg.includes('Invalid caller for message')
+            || errData.includes('Invalid caller for message');
 
-        updateModalStep(3, 'pending', 'Failed', 'Relay transaction failed. Check logs for details.');
+        if (isCallerError) {
+            const requiredCaller = extractDestCaller(messageHex);
+            log('This CCTP message has a destination_caller restriction.', 'error');
+            if (requiredCaller) {
+                log(`Required caller: ${requiredCaller}`, 'error');
+                log(`Your wallet:     ${evmAddress}`, 'info');
+                if (requiredCaller.toLowerCase() !== evmAddress.toLowerCase()) {
+                    log('You must connect the wallet that matches the required caller address to complete this relay.', 'warning');
+                    log('This is typically set by the bridge/app that initiated the burn (e.g. cctp.money, Noble Express).', 'info');
+                }
+            } else {
+                log('Only the designated wallet can complete this relay. Check which address was set as destination_caller.', 'warning');
+            }
+            updateModalStep(3, 'pending', 'Failed', 'Destination caller restriction — wrong wallet.');
+        } else if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
+            log('Transaction was rejected by user.', 'warning');
+            updateModalStep(3, 'pending', 'Failed', 'Transaction rejected by user.');
+        } else {
+            log(`Relay failed: ${errMsg}`, 'error');
+            updateModalStep(3, 'pending', 'Failed', 'Relay transaction failed. Check logs for details.');
+        }
     }
 }
 
