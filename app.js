@@ -1307,6 +1307,16 @@ async function lookupByTxHash() {
         const data = await response.json();
         
         if (data.messages && data.messages.length > 0) {
+            // Auto-detect destination chain from first result
+            const firstMsg = data.messages[0];
+            const destDomain = firstMsg.destinationDomain ?? firstMsg.destination?.domain;
+            if (destDomain !== undefined) {
+                const chainKey = DOMAIN_TO_CHAIN[destDomain];
+                if (chainKey) {
+                    log(`Detected destination: ${getDestChainLabel(chainKey)} (domain ${destDomain})`, 'info');
+                    setDestChain(chainKey);
+                }
+            }
             displayLookupResults(data.messages, 'tx');
         } else {
             showNoResults('No CCTP transfer found for this transaction hash.');
@@ -1320,7 +1330,7 @@ async function lookupByTxHash() {
 async function lookupByAddress() {
     const address = elements.lookupAddress?.value.trim();
     if (!address) {
-        log('Please enter a Solana address', 'warning');
+        log('Please enter a destination address', 'warning');
         return;
     }
     
@@ -1328,9 +1338,9 @@ async function lookupByAddress() {
     showLookupLoading();
     
     try {
-        // Query Circle's CCTP API for pending messages to this address
-        const destDomain = selectedDestChain === 'base' ? 6 : 5;
-        const response = await fetch(`${CCTP_LOOKUP_API}?destinationDomain=${destDomain}&status=pending`);
+        // Circle's API supports sourceDomain + recipient filtering
+        // Source is always Noble (domain 4)
+        const response = await fetch(`${CCTP_LOOKUP_API}?sourceDomain=4`);
         
         if (!response.ok) {
             throw new Error(`API returned ${response.status}`);
@@ -1339,38 +1349,40 @@ async function lookupByAddress() {
         const data = await response.json();
         
         if (data.messages && data.messages.length > 0) {
-            // Filter for messages going to this address (if the API returns all pending)
-            // The API might already filter, but we double-check
+            // Filter for messages going to this address
             const relevantMessages = data.messages.filter(msg => {
-                // Try to match the mint recipient (base64 encoded Solana address)
                 try {
+                    // Check the mint recipient field
                     const mintRecipient = msg.message?.mintRecipient;
-                    if (mintRecipient) {
-                        const decoded = atob(mintRecipient);
-                        // Compare with Solana address bytes
-                        return decoded.includes(address) || mintRecipient === address;
+                    if (!mintRecipient) return false;
+
+                    // For EVM addresses (0x...), compare against the hex-encoded recipient
+                    if (address.startsWith('0x')) {
+                        const addrLower = address.toLowerCase().replace(/^0x/, '');
+                        // mintRecipient is 32-byte hex; EVM address is in the last 20 bytes
+                        const recipientHex = mintRecipient.replace(/^0x/, '').toLowerCase();
+                        return recipientHex.endsWith(addrLower);
                     }
+
+                    // For Solana addresses (base58), compare via base64 decoded bytes
+                    const decoded = atob(mintRecipient);
+                    return decoded.includes(address) || mintRecipient === address;
                 } catch (e) {
-                    // Ignore decode errors
+                    return false;
                 }
-                return false;
             });
             
             if (relevantMessages.length > 0) {
                 displayLookupResults(relevantMessages, 'address');
-            } else if (data.messages.length > 0) {
-                // Show all pending if we can't filter
-                displayLookupResults(data.messages.slice(0, 10), 'address');
-                log('Showing recent pending transfers. Click one to auto-fill.', 'info');
             } else {
-                showNoResults('No pending transfers found.');
+                showNoResults('No CCTP transfers found for this address. Try searching by Noble tx hash instead.');
             }
         } else {
-            showNoResults('No pending CCTP transfers found for this address.');
+            showNoResults('No recent CCTP transfers found from Noble.');
         }
     } catch (error) {
         log(`Lookup failed: ${error.message}`, 'error');
-        showNoResults(`Error: ${error.message}`);
+        showNoResults(`Error: ${error.message}. Try searching by Noble tx hash instead.`);
     }
 }
 
@@ -1399,11 +1411,15 @@ function displayLookupResults(messages, searchType) {
         const statusLabel = status === 'complete' ? 'Ready to relay' : 
                            status === 'pending_confirmations' ? 'Awaiting attestation' : status;
         
+        const destDomain = msg.destinationDomain ?? msg.destination?.domain;
+        const destChainKey = destDomain !== undefined ? DOMAIN_TO_CHAIN[destDomain] : null;
+        const destLabel = destChainKey ? getDestChainLabel(destChainKey) : `Domain ${destDomain ?? '?'}`;
+        
         return `
             <div class="lookup-result-item" onclick="selectLookupResult('${txHash}', ${JSON.stringify(msg).replace(/'/g, "\\'")})">
                 <div class="tx-hash">${txHash.slice(0, 20)}...${txHash.slice(-8)}</div>
                 <div class="tx-details">
-                    ${amount} USDC 
+                    ${amount} USDC → ${destLabel}
                     <span class="tx-status ${statusClass}">${statusLabel}</span>
                 </div>
             </div>
@@ -1427,6 +1443,16 @@ function selectLookupResult(txHash, msgData) {
     
     // If we have message data, try to pre-fill
     if (msgData) {
+        // Auto-detect destination chain from API response
+        const destDomain = msgData.destinationDomain ?? msgData.destination?.domain;
+        if (destDomain !== undefined) {
+            const chainKey = DOMAIN_TO_CHAIN[destDomain];
+            if (chainKey) {
+                log(`Detected destination: ${getDestChainLabel(chainKey)} (domain ${destDomain})`, 'info');
+                setDestChain(chainKey);
+            }
+        }
+
         // If attestation is complete, we might have the attestation
         if (msgData.attestation && elements.attestation) {
             elements.attestation.value = msgData.attestation;
@@ -1435,7 +1461,6 @@ function selectLookupResult(txHash, msgData) {
         
         // Try to extract message hex
         if (msgData.message && elements.messageHex) {
-            // The API might return the message in different formats
             const messageBytes = msgData.messageBytes || msgData.message;
             if (typeof messageBytes === 'string' && messageBytes.startsWith('0x')) {
                 elements.messageHex.value = messageBytes;
@@ -2595,9 +2620,9 @@ if (sections.relay) sections.relay.classList.add('card-collapsed');
 // Initialize button states
 updatePhantomButtonText();
 
-// Initialize destination chain from relay dropdown (default: solana)
+// Initialize destination chain visibility (default to Solana section visible, heading stays generic)
 if (elements.relayDestChain) {
-    setDestChain(elements.relayDestChain.value);
+    selectedDestChain = elements.relayDestChain.value;
 }
 
 log('CCTP Relayer initialized. Use the lookup above or paste a Noble tx hash to begin.', 'info');
