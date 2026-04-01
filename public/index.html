@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCTP Relayer - Noble to Solana</title>
+    <title>CCTP Relayer - Noble to Solana, Base & EVM</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -45,7 +45,7 @@
                     <p class="modal-subtitle">
                         Your USDC is being transferred from 
                         <span class="chain-badge noble">Noble</span> to 
-                        <span class="chain-badge solana">Solana</span>
+                        <span class="chain-badge solana" id="modalDestBadge">Solana</span>
                     </p>
                     
                     <div class="progress-steps-modal">
@@ -118,7 +118,7 @@
                     <p class="modal-subtitle">
                         Your USDC has been successfully bridged from 
                         <span class="chain-badge noble">Noble</span> to 
-                        <span class="chain-badge solana">Solana</span>
+                        <span class="chain-badge solana" id="modalDestBadgeComplete">Solana</span>
                     </p>
                     
                     <div class="modal-details">
@@ -155,7 +155,7 @@
 
         <header>
             <h1>CCTP Relayer</h1>
-            <p class="subtitle">Self-service USDC relay from Noble to Solana <span id="statsCounter" class="stats-counter"></span></p>
+            <p class="subtitle">Self-service USDC relay from Noble to Solana, Base, Ethereum & more <span id="statsCounter" class="stats-counter"></span></p>
         </header>
 
         <!-- About / Splash Section -->
@@ -257,13 +257,19 @@
                         <label for="sendDestChain">Destination Chain</label>
                         <select id="sendDestChain">
                             <option value="solana">Solana</option>
+                            <option value="ethereum">Ethereum</option>
+                            <option value="base">Base</option>
+                            <option value="arbitrum">Arbitrum</option>
+                            <option value="op">OP Mainnet</option>
+                            <option value="avalanche">Avalanche</option>
+                            <option value="polygon">Polygon PoS</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group full-width">
-                        <label for="sendDestAddress">Destination Address (Solana)</label>
+                        <label for="sendDestAddress" id="sendDestAddressLabel">Destination Address (Solana)</label>
                         <div class="input-with-button">
                             <input
                                 type="text"
@@ -370,9 +376,9 @@
                 <div class="lookup-divider">— OR —</div>
                 <div class="form-row">
                     <div class="form-group full-width">
-                        <label for="lookupAddress">Solana Destination Address</label>
+                        <label for="lookupAddress">Destination Address</label>
                         <div class="input-with-button">
-                            <input type="text" id="lookupAddress" placeholder="Enter Solana address to find pending transfers...">
+                            <input type="text" id="lookupAddress" placeholder="Enter destination address to find pending transfers...">
                             <button id="lookupByAddressBtn" class="btn btn-secondary">Search Pending</button>
                         </div>
                     </div>
@@ -425,6 +431,12 @@
                     <label for="destChain">Destination Chain</label>
                     <select id="destChain">
                         <option value="solana">Solana</option>
+                        <option value="ethereum">Ethereum</option>
+                        <option value="base">Base</option>
+                        <option value="arbitrum">Arbitrum</option>
+                        <option value="op">OP Mainnet</option>
+                        <option value="avalanche">Avalanche</option>
+                        <option value="polygon">Polygon PoS</option>
                     </select>
                 </div>
             </div>
@@ -479,11 +491,16 @@
                 </div>
             </div>
 
+            <p class="help-text">
+                EVM chain contract addresses (Ethereum, Base, Arbitrum, OP, Avalanche, Polygon) are auto-configured from the destination chain selection.
+            </p>
+
             <p class="help-links">
                 <strong>References:</strong>
                 <a href="https://developers.circle.com/cctp/overview" target="_blank">CCTP Docs</a> |
                 <a href="https://developers.circle.com/cctp/supported-domains" target="_blank">Domain IDs</a> |
                 <a href="https://developers.circle.com/cctp/solana-programs" target="_blank">Solana CCTP Programs</a> |
+                <a href="https://learn.circle.com/cctp/v1/evm-smart-contracts" target="_blank">EVM CCTP Contracts</a> |
                 <a href="https://solscan.io/account/CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd" target="_blank">MessageTransmitter on Solscan</a>
             </p>
         </section>
@@ -560,39 +577,92 @@
 
         <!-- Wallet & Relay -->
         <section id="section-relay" class="card">
-            <h2><span class="section-step-num">3</span>. Relay to Solana</h2>
+            <h2><span class="section-step-num">3</span>. <span id="relayHeadingText">Relay to Solana</span></h2>
             <div class="form-row">
                 <div class="form-group">
-                    <label>Phantom Wallet</label>
-                    <div class="wallet-status">
-                        <span id="walletStatus" class="status-badge status-disconnected">Disconnected</span>
-                        <span id="walletAddress" class="wallet-address"></span>
+                    <label for="relayDestChain">Destination Chain</label>
+                    <select id="relayDestChain">
+                        <option value="solana">Solana</option>
+                        <option value="ethereum">Ethereum</option>
+                        <option value="base">Base</option>
+                        <option value="arbitrum">Arbitrum</option>
+                        <option value="op">OP Mainnet</option>
+                        <option value="avalanche">Avalanche</option>
+                        <option value="polygon">Polygon PoS</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Solana Relay -->
+            <div id="solanaRelaySection">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Phantom Wallet</label>
+                        <div class="wallet-status">
+                            <span id="walletStatus" class="status-badge status-disconnected">Disconnected</span>
+                            <span id="walletAddress" class="wallet-address"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button id="connectWalletBtn" class="btn btn-primary">Connect Phantom</button>
                     </div>
                 </div>
-                <div class="form-group">
-                    <button id="connectWalletBtn" class="btn btn-primary">Connect Phantom</button>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group full-width">
-                    <button id="relayBtn" class="btn btn-success btn-large" disabled>Relay to Solana</button>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group full-width">
-                    <label for="solanaTxHash">Solana Transaction</label>
-                    <div class="input-with-button">
-                        <input type="text" id="solanaTxHash" placeholder="Transaction signature..." readonly>
-                        <a id="viewOnSolscan" href="#" target="_blank" class="btn btn-secondary" style="display: none;">View on Solscan</a>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <button id="relayBtn" class="btn btn-success btn-large" disabled>Relay to Solana</button>
                     </div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="solanaTxHash">Solana Transaction</label>
+                        <div class="input-with-button">
+                            <input type="text" id="solanaTxHash" placeholder="Transaction signature..." readonly>
+                            <a id="viewOnSolscan" href="#" target="_blank" class="btn btn-secondary" style="display: none;">View on Solscan</a>
+                        </div>
+                    </div>
+                </div>
+                <p class="help-links">
+                    <strong>References:</strong>
+                    <a href="https://phantom.app/" target="_blank">Phantom Wallet</a> |
+                    <a href="https://solscan.io/" target="_blank">Solscan Explorer</a> |
+                    <a href="https://github.com/circlefin/solana-cctp-contracts" target="_blank">CCTP Solana Contracts</a>
+                </p>
             </div>
-            <p class="help-links">
-                <strong>References:</strong>
-                <a href="https://phantom.app/" target="_blank">Phantom Wallet</a> |
-                <a href="https://solscan.io/" target="_blank">Solscan Explorer</a> |
-                <a href="https://github.com/circlefin/solana-cctp-contracts" target="_blank">CCTP Solana Contracts</a>
-            </p>
+
+            <!-- EVM Relay (Ethereum, Base, Arbitrum, OP, Avalanche, Polygon) -->
+            <div id="evmRelaySection" style="display: none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>EVM Wallet</label>
+                        <div class="wallet-status">
+                            <span id="evmWalletStatus" class="status-badge status-disconnected">Disconnected</span>
+                            <span id="evmWalletAddress" class="wallet-address"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button id="connectEvmWalletBtn" class="btn btn-primary">Connect Wallet</button>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <button id="relayEvmBtn" class="btn btn-success btn-large" disabled>Relay to Base</button>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="evmTxHash">Transaction</label>
+                        <div class="input-with-button">
+                            <input type="text" id="evmTxHash" placeholder="Transaction hash..." readonly>
+                            <a id="viewOnEvmExplorer" href="#" target="_blank" class="btn btn-secondary" style="display: none;">View on Explorer</a>
+                        </div>
+                    </div>
+                </div>
+                <p class="help-links">
+                    <strong>References:</strong>
+                    <a href="https://learn.circle.com/cctp/v1/evm-smart-contracts" target="_blank">CCTP EVM Contracts</a> |
+                    <a href="https://developers.circle.com/cctp/supported-domains" target="_blank">Supported Domains</a>
+                </p>
+            </div>
         </section>
 
         <!-- Logs -->

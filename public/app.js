@@ -10,6 +10,96 @@ let activeTab = 'receive'; // 'send' | 'receive' (Send tab hidden - use Noble Ex
 let nobleWalletAddress = null;
 let nobleUsdcBalance = 0n;
 let currentTheme = 'dark'; // 'dark' | 'light' | '8bit'
+let selectedDestChain = 'solana'; // 'solana' | chain key from EVM_CHAINS
+
+// EVM wallet state (for EVM chain relays)
+let evmProvider = null;
+let evmSigner = null;
+let evmAddress = null;
+
+// Supported EVM destination chains (CCTP V1 mainnet)
+const EVM_CHAINS = {
+    ethereum: {
+        name: 'Ethereum',
+        domainId: 0,
+        chainId: '0x1',
+        chainIdDecimal: 1,
+        messageTransmitter: '0x0a992d191DEeC32aFe36203Ad87D7d289a738F81',
+        rpcUrl: 'https://eth.llamarpc.com',
+        explorer: 'https://etherscan.io',
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        color: '#627EEA',
+    },
+    avalanche: {
+        name: 'Avalanche',
+        domainId: 1,
+        chainId: '0xa86a',
+        chainIdDecimal: 43114,
+        messageTransmitter: '0x8186359aF5F57FbB40c6b14A588d2A59C0C29880',
+        rpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
+        explorer: 'https://snowtrace.io',
+        nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
+        color: '#E84142',
+    },
+    op: {
+        name: 'OP Mainnet',
+        domainId: 2,
+        chainId: '0xa',
+        chainIdDecimal: 10,
+        messageTransmitter: '0x4D41f22c5a0e5c74090899E5a8Fb597a8842b3e8',
+        rpcUrl: 'https://mainnet.optimism.io',
+        explorer: 'https://optimistic.etherscan.io',
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        color: '#FF0420',
+    },
+    arbitrum: {
+        name: 'Arbitrum',
+        domainId: 3,
+        chainId: '0xa4b1',
+        chainIdDecimal: 42161,
+        messageTransmitter: '0xC30362313FBBA5cf9163F0bb16a0e01f01A896ca',
+        rpcUrl: 'https://arb1.arbitrum.io/rpc',
+        explorer: 'https://arbiscan.io',
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        color: '#28A0F0',
+    },
+    base: {
+        name: 'Base',
+        domainId: 6,
+        chainId: '0x2105',
+        chainIdDecimal: 8453,
+        messageTransmitter: '0xAD09780d193884d503182aD4588450C416D6F9D4',
+        rpcUrl: 'https://mainnet.base.org',
+        explorer: 'https://basescan.org',
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        color: '#0052FF',
+    },
+    polygon: {
+        name: 'Polygon PoS',
+        domainId: 7,
+        chainId: '0x89',
+        chainIdDecimal: 137,
+        messageTransmitter: '0xF3be9355363857F3e001be68856A2f96b4C39Ba9',
+        rpcUrl: 'https://polygon-rpc.com',
+        explorer: 'https://polygonscan.com',
+        nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
+        color: '#8247E5',
+    },
+};
+
+// Reverse lookup: CCTP domain ID → chain key
+const DOMAIN_TO_CHAIN = { 5: 'solana' };
+for (const [key, cfg] of Object.entries(EVM_CHAINS)) {
+    DOMAIN_TO_CHAIN[cfg.domainId] = key;
+}
+
+function getEvmChain(chainKey) {
+    return EVM_CHAINS[chainKey] || null;
+}
+
+function isEvmDest(chainKey) {
+    return chainKey !== 'solana' && !!EVM_CHAINS[chainKey];
+}
 
 // ============ Theme Management ============
 function setTheme(theme) {
@@ -140,6 +230,23 @@ const elements = {
     // Stats counter
     statsCounter: document.getElementById('statsCounter'),
     
+    // Relay destination chain
+    relayDestChain: document.getElementById('relayDestChain'),
+    relayHeadingText: document.getElementById('relayHeadingText'),
+    solanaRelaySection: document.getElementById('solanaRelaySection'),
+    evmRelaySection: document.getElementById('evmRelaySection'),
+    
+    // EVM wallet (generic for all EVM destination chains)
+    connectEvmWalletBtn: document.getElementById('connectEvmWalletBtn'),
+    evmWalletStatus: document.getElementById('evmWalletStatus'),
+    evmWalletAddress: document.getElementById('evmWalletAddress'),
+    relayEvmBtn: document.getElementById('relayEvmBtn'),
+    evmTxHash: document.getElementById('evmTxHash'),
+    viewOnEvmExplorer: document.getElementById('viewOnEvmExplorer'),
+    
+    // Send tab destination label
+    sendDestAddressLabel: document.getElementById('sendDestAddressLabel'),
+    
     // Progress Modal
     progressModal: document.getElementById('progressModal'),
     progressModalInProgress: document.getElementById('progressModalInProgress'),
@@ -168,6 +275,10 @@ const elements = {
     modalReceipt: document.getElementById('modalReceipt'),
     closeProgressModal: document.getElementById('closeProgressModal'),
     bridgeAgainBtn: document.getElementById('bridgeAgainBtn'),
+    
+    // Modal destination badges
+    modalDestBadge: document.getElementById('modalDestBadge'),
+    modalDestBadgeComplete: document.getElementById('modalDestBadgeComplete'),
 };
 
 // Tab buttons and contents
@@ -454,6 +565,195 @@ function debugPdaDerivation() {
 // Expose debug function globally for console testing
 window.debugPdaDerivation = debugPdaDerivation;
 
+// Convert EVM address (0x...) to base64-encoded 32-byte mintRecipient for CCTP
+function evmAddressToBase64(address) {
+    const hex = address.replace(/^0x/, '');
+    const padded = hex.padStart(64, '0');
+    const bytes = hexToBytes('0x' + padded);
+    return bytesToBase64(bytes);
+}
+
+// ============ EVM Wallet (Base Relay) ============
+async function connectEvmWallet() {
+    try {
+        if (!window.ethereum) {
+            window.open('https://metamask.io/', '_blank');
+            log('No EVM wallet found. Please install MetaMask or another wallet.', 'error');
+            return;
+        }
+
+        evmProvider = new ethers.providers.Web3Provider(window.ethereum);
+        const accounts = await evmProvider.send('eth_requestAccounts', []);
+        evmSigner = evmProvider.getSigner();
+        evmAddress = accounts[0];
+
+        updateEvmWalletUI();
+        log(`Connected EVM wallet: ${evmAddress}`, 'success');
+
+        if (isEvmDest(selectedDestChain)) {
+            await switchToEvmNetwork(selectedDestChain);
+        }
+        updateEvmRelayButton();
+
+        window.ethereum.on('accountsChanged', (accts) => {
+            if (accts.length === 0) {
+                disconnectEvmWallet();
+            } else {
+                evmAddress = accts[0];
+                evmProvider = new ethers.providers.Web3Provider(window.ethereum);
+                evmSigner = evmProvider.getSigner();
+                updateEvmWalletUI();
+                updateEvmRelayButton();
+                log(`EVM wallet changed to: ${evmAddress}`, 'info');
+            }
+        });
+
+        window.ethereum.on('chainChanged', () => {
+            evmProvider = new ethers.providers.Web3Provider(window.ethereum);
+            evmSigner = evmProvider.getSigner();
+        });
+    } catch (error) {
+        log(`EVM wallet connection failed: ${error.message}`, 'error');
+    }
+}
+
+function disconnectEvmWallet() {
+    evmProvider = null;
+    evmSigner = null;
+    evmAddress = null;
+    updateEvmWalletUI();
+    updateEvmRelayButton();
+    log('EVM wallet disconnected', 'info');
+}
+
+function toggleEvmWallet() {
+    if (evmAddress) {
+        disconnectEvmWallet();
+    } else {
+        connectEvmWallet();
+    }
+}
+
+function updateEvmWalletUI() {
+    const connected = !!evmAddress;
+    const shortAddr = connected
+        ? evmAddress.substring(0, 6) + '...' + evmAddress.slice(-4)
+        : '';
+
+    if (elements.evmWalletStatus) {
+        elements.evmWalletStatus.textContent = connected ? 'Connected' : 'Disconnected';
+        elements.evmWalletStatus.className = connected
+            ? 'status-badge status-connected'
+            : 'status-badge status-disconnected';
+    }
+    if (elements.evmWalletAddress) {
+        elements.evmWalletAddress.textContent = shortAddr;
+    }
+    if (elements.connectEvmWalletBtn) {
+        elements.connectEvmWalletBtn.textContent = connected ? 'Disconnect' : 'Connect Wallet';
+    }
+}
+
+async function switchToEvmNetwork(chainKey) {
+    const chain = getEvmChain(chainKey);
+    if (!chain) return;
+    try {
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: chain.chainId }],
+        });
+        log(`Switched to ${chain.name} network`, 'success');
+    } catch (switchError) {
+        if (switchError.code === 4902) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: chain.chainId,
+                        chainName: chain.name,
+                        nativeCurrency: chain.nativeCurrency,
+                        rpcUrls: [chain.rpcUrl],
+                        blockExplorerUrls: [chain.explorer],
+                    }],
+                });
+                log(`${chain.name} network added and switched`, 'success');
+            } catch (addError) {
+                log(`Failed to add ${chain.name} network: ${addError.message}`, 'error');
+            }
+        } else {
+            log(`Failed to switch to ${chain.name}: ${switchError.message}`, 'error');
+        }
+    }
+}
+
+function updateEvmRelayButton() {
+    if (!elements.relayEvmBtn) return;
+    const hasAttestation = elements.attestation.value.trim().length > 0;
+    const hasMessage = elements.messageHex.value.trim().length > 0;
+    const hasWallet = evmAddress !== null;
+    elements.relayEvmBtn.disabled = !(hasAttestation && hasMessage && hasWallet);
+}
+
+// ============ Destination Chain Switching ============
+function getDestChainLabel(chainKey) {
+    if (chainKey === 'solana') return 'Solana';
+    const evmCfg = getEvmChain(chainKey);
+    return evmCfg ? evmCfg.name : chainKey;
+}
+
+function setDestChain(chain) {
+    selectedDestChain = chain;
+    const isEvm = isEvmDest(chain);
+
+    if (elements.solanaRelaySection && elements.evmRelaySection) {
+        elements.solanaRelaySection.style.display = !isEvm ? '' : 'none';
+        elements.evmRelaySection.style.display = isEvm ? '' : 'none';
+    }
+
+    const label = getDestChainLabel(chain);
+
+    if (elements.relayHeadingText) {
+        elements.relayHeadingText.textContent = `Relay to ${label}`;
+    }
+
+    if (elements.relayEvmBtn) {
+        elements.relayEvmBtn.textContent = `Relay to ${label}`;
+    }
+
+    updateModalDestBadge(chain);
+
+    if (elements.relayDestChain && elements.relayDestChain.value !== chain) {
+        elements.relayDestChain.value = chain;
+    }
+}
+
+function updateModalDestBadge(chain) {
+    const label = getDestChainLabel(chain);
+    const badgeClass = isEvmDest(chain)
+        ? `chain-badge evm-${chain}`
+        : 'chain-badge solana';
+
+    if (elements.modalDestBadge) {
+        elements.modalDestBadge.textContent = label;
+        elements.modalDestBadge.className = badgeClass;
+    }
+    if (elements.modalDestBadgeComplete) {
+        elements.modalDestBadgeComplete.textContent = label;
+        elements.modalDestBadgeComplete.className = badgeClass;
+    }
+}
+
+function detectDestDomainFromMessage(messageHex) {
+    try {
+        const messageBytes = hexToBytes(messageHex);
+        if (messageBytes.length < 12) return null;
+        const destDomainBytes = new Uint8Array(messageBytes.slice(8, 12));
+        return new DataView(destDomainBytes.buffer).getUint32(0, false);
+    } catch (e) {
+        return null;
+    }
+}
+
 function getApiBase() {
     if (!elements.apiBase) return '';
     const raw = elements.apiBase.value.trim();
@@ -694,8 +994,11 @@ async function sendFromNoble() {
     const amountStr = elements.sendAmount.value.trim();
     const amount = Number(amountStr);
 
+    const destChainLabel = getDestChainLabel(destChain);
+    const isEvm = isEvmDest(destChain);
+
     if (!destAddress) {
-        log('Please enter a destination address for Solana.', 'error');
+        log(`Please enter a destination address for ${destChainLabel}.`, 'error');
         return;
     }
     if (Number.isNaN(amount) || amount <= 0) {
@@ -703,13 +1006,22 @@ async function sendFromNoble() {
         return;
     }
 
-    // Validate Solana address
+    // Validate address and convert to base64 mintRecipient
     let mintRecipientBase64;
+    const evmCfg = getEvmChain(destChain);
+    const destinationDomain = evmCfg ? evmCfg.domainId : 5; // 5 = Solana
     try {
-        mintRecipientBase64 = solanaAddressToBase64(destAddress);
+        if (isEvm) {
+            if (!/^0x[0-9a-fA-F]{40}$/.test(destAddress)) {
+                throw new Error('Invalid EVM address format (expected 0x + 40 hex chars)');
+            }
+            mintRecipientBase64 = evmAddressToBase64(destAddress);
+        } else {
+            mintRecipientBase64 = solanaAddressToBase64(destAddress);
+        }
         log(`Destination (base64): ${mintRecipientBase64}`, 'info');
     } catch (e) {
-        log(`Invalid Solana address: ${e.message}`, 'error');
+        log(`Invalid ${destChainLabel} address: ${e.message}`, 'error');
         return;
     }
 
@@ -763,7 +1075,7 @@ async function sendFromNoble() {
                 value: {
                     from: nobleWalletAddress,
                     amount: burnAmountMicro.toString(),
-                    destination_domain: 5,
+                    destination_domain: destinationDomain,
                     mint_recipient: mintRecipientBase64,
                     burn_token: 'uusdc'
                 }
@@ -985,7 +1297,7 @@ async function lookupByTxHash() {
     showLookupLoading();
     
     try {
-        // Query Circle's CCTP API for the transaction
+        // Query Circle's CCTP API for the transaction (source is always Noble domain 4)
         const response = await fetch(`${CCTP_LOOKUP_API}?sourceDomain=4&sourceTxHash=${txHash}`);
         
         if (!response.ok) {
@@ -1017,8 +1329,8 @@ async function lookupByAddress() {
     
     try {
         // Query Circle's CCTP API for pending messages to this address
-        // Note: Circle API uses 32-byte mint recipient, need to convert Solana address
-        const response = await fetch(`${CCTP_LOOKUP_API}?destinationDomain=5&status=pending`);
+        const destDomain = selectedDestChain === 'base' ? 6 : 5;
+        const response = await fetch(`${CCTP_LOOKUP_API}?destinationDomain=${destDomain}&status=pending`);
         
         if (!response.ok) {
             throw new Error(`API returned ${response.status}`);
@@ -1249,6 +1561,18 @@ function convertToHex() {
         elements.messageHex.classList.add('field-computed');
         log('Converted message to hex', 'success');
         
+        // Auto-detect destination chain from message
+        const destDomain = detectDestDomainFromMessage(hex);
+        if (destDomain !== null) {
+            const chainKey = DOMAIN_TO_CHAIN[destDomain];
+            if (chainKey) {
+                log(`Detected destination: ${getDestChainLabel(chainKey)} (domain ${destDomain})`, 'info');
+                setDestChain(chainKey);
+            } else {
+                log(`Detected destination domain: ${destDomain} (unsupported)`, 'warning');
+            }
+        }
+        
         // Auto-compute hash
         computeHash();
     } catch (error) {
@@ -1330,8 +1654,12 @@ async function fetchAttestation() {
             log('Next step: connect Phantom and relay on Solana (Step 4).', 'info');
             scrollToSection('section-relay');
             
-            // Auto-relay if Phantom is connected
-            if (phantomWallet && phantomWallet.isConnected) {
+            // Auto-relay if wallet is connected
+            if (isEvmDest(selectedDestChain) && evmSigner) {
+                const destLabel = getDestChainLabel(selectedDestChain);
+                log(`EVM wallet connected, auto-relaying to ${destLabel}...`, 'info');
+                setTimeout(relayToEvm, 1500);
+            } else if (selectedDestChain === 'solana' && phantomWallet && phantomWallet.isConnected) {
                 log('Phantom is connected, auto-relaying to Solana...', 'info');
                 setTimeout(relayToSolana, 1500);
             }
@@ -1631,11 +1959,16 @@ function showModalComplete(solanaTxHash) {
         elements.modalAmountComplete.innerHTML = `${modalTransferData.amount.toLocaleString()} <span class="usdc-icon">💲</span>`;
     }
     
-    // Set receipt link
+    // Set receipt link (use correct explorer for destination chain)
     if (elements.modalReceipt) {
         const shortTx = solanaTxHash.substring(0, 8) + '...' + solanaTxHash.slice(-8);
         elements.modalReceipt.textContent = shortTx;
-        elements.modalReceipt.href = `https://solscan.io/tx/${solanaTxHash}`;
+        const evmCfg = getEvmChain(selectedDestChain);
+        if (evmCfg) {
+            elements.modalReceipt.href = `${evmCfg.explorer}/tx/${solanaTxHash}`;
+        } else {
+            elements.modalReceipt.href = `https://solscan.io/tx/${solanaTxHash}`;
+        }
     }
     
     // Switch to complete state
@@ -1973,6 +2306,100 @@ async function relayToSolana() {
     }
 }
 
+// ============ Relay to EVM Chain ============
+async function relayToEvm() {
+    if (!evmSigner) {
+        log('Please connect EVM wallet first', 'error');
+        return;
+    }
+
+    const chain = getEvmChain(selectedDestChain);
+    if (!chain) {
+        log(`Unknown EVM destination: ${selectedDestChain}`, 'error');
+        return;
+    }
+
+    const messageHex = elements.messageHex.value.trim();
+    const attestationHex = elements.attestation.value.trim();
+
+    if (!messageHex || !attestationHex) {
+        log('Message and attestation are required', 'error');
+        return;
+    }
+
+    log(`Building ${chain.name} transaction...`, 'info');
+
+    const modalVisible = elements.progressModal && elements.progressModal.style.display === 'flex';
+    if (!modalVisible) {
+        showProgressModal(evmAddress, 0);
+        updateModalStep(1, 'completed', 'Completed', 'Noble burn transaction (external)');
+        updateModalStep(2, 'completed', 'Completed', 'Circle attestation verified');
+    }
+    updateModalStep(3, 'active', 'In Progress', `Minting USDC on ${chain.name}...`);
+
+    try {
+        await switchToEvmNetwork(selectedDestChain);
+
+        evmProvider = new ethers.providers.Web3Provider(window.ethereum);
+        evmSigner = evmProvider.getSigner();
+
+        const abi = ['function receiveMessage(bytes message, bytes attestation) returns (bool)'];
+        const contract = new ethers.Contract(chain.messageTransmitter, abi, evmSigner);
+
+        // Parse amount from message for display
+        const messageBytes = hexToBytes(messageHex);
+        const bodyOffset = 116;
+        const amountBytes = messageBytes.slice(bodyOffset + 4 + 32 + 32, bodyOffset + 4 + 32 + 32 + 32);
+        const amountBigInt = new DataView(new Uint8Array(amountBytes.slice(24, 32)).buffer).getBigUint64(0, false);
+        const relayAmountUsdc = Number(amountBigInt) / 1_000_000;
+
+        log(`Relay amount: ${relayAmountUsdc} USDC`, 'info');
+        log('Requesting signature from wallet...', 'info');
+
+        const tx = await contract.receiveMessage(messageHex, attestationHex);
+        log(`Transaction sent: ${tx.hash}`, 'success');
+        log('Waiting for confirmation...', 'info');
+
+        const receipt = await tx.wait();
+
+        const explorerUrl = `${chain.explorer}/tx/${tx.hash}`;
+        log(`Transaction confirmed in block ${receipt.blockNumber}`, 'success');
+        log(`View on explorer: ${explorerUrl}`, 'info');
+
+        if (elements.evmTxHash) {
+            elements.evmTxHash.value = tx.hash;
+        }
+        if (elements.viewOnEvmExplorer) {
+            elements.viewOnEvmExplorer.href = explorerUrl;
+            elements.viewOnEvmExplorer.textContent = `View on ${chain.name}`;
+            elements.viewOnEvmExplorer.style.display = 'inline-flex';
+        }
+
+        updateModalStep(3, 'completed', 'Completed', `Minted ${relayAmountUsdc} USDC on ${chain.name}`,
+            tx.hash, explorerUrl);
+
+        showModalComplete(tx.hash);
+
+        if (relayAmountUsdc > 0) {
+            updateStats(relayAmountUsdc);
+        }
+
+        showConfetti();
+        setStepState('relay', 'done');
+        setSectionCompleted('relay', { collapse: true });
+
+    } catch (error) {
+        log(`Relay failed: ${error.message}`, 'error');
+        console.error('Full error:', error);
+
+        if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
+            log('Transaction was rejected by user.', 'warning');
+        }
+
+        updateModalStep(3, 'pending', 'Failed', 'Relay transaction failed. Check logs for details.');
+    }
+}
+
 // ============ Event Listeners ============
 elements.fetchTxBtn.addEventListener('click', fetchNobleTx);
 elements.convertToHexBtn.addEventListener('click', convertToHex);
@@ -1981,6 +2408,21 @@ elements.fetchAttestationBtn.addEventListener('click', fetchAttestation);
 elements.connectWalletBtn.addEventListener('click', toggleWallet);
 elements.relayBtn.addEventListener('click', relayToSolana);
 elements.clearLogsBtn.addEventListener('click', clearLogs);
+
+// EVM wallet (Base relay)
+if (elements.connectEvmWalletBtn) {
+    elements.connectEvmWalletBtn.addEventListener('click', toggleEvmWallet);
+}
+if (elements.relayEvmBtn) {
+    elements.relayEvmBtn.addEventListener('click', relayToEvm);
+}
+
+// Destination chain selector (relay section)
+if (elements.relayDestChain) {
+    elements.relayDestChain.addEventListener('change', (e) => {
+        setDestChain(e.target.value);
+    });
+}
 
 // Noble send tab
 if (elements.connectNobleWalletBtn) {
@@ -1994,6 +2436,28 @@ if (elements.usePhantomAddressBtn) {
 }
 if (elements.sendFromNobleBtn) {
     elements.sendFromNobleBtn.addEventListener('click', sendFromNoble);
+}
+
+// Send tab destination chain change
+if (elements.sendDestChain) {
+    elements.sendDestChain.addEventListener('change', (e) => {
+        const chain = e.target.value;
+        const isEvm = isEvmDest(chain);
+        const chainLabel = getDestChainLabel(chain);
+        if (elements.sendDestAddressLabel) {
+            elements.sendDestAddressLabel.textContent = `Destination Address (${chainLabel})`;
+        }
+        if (elements.sendDestAddress) {
+            elements.sendDestAddress.placeholder = isEvm
+                ? `${chainLabel} recipient address (0x...)...`
+                : 'Solana recipient address (base58)...';
+            elements.sendDestAddress.value = '';
+        }
+        if (elements.usePhantomAddressBtn) {
+            elements.usePhantomAddressBtn.style.display = isEvm ? 'none' : '';
+        }
+        updateSendFromNobleButton();
+    });
 }
 
 // Keep Noble send button state in sync as user types
@@ -2030,15 +2494,17 @@ if (elements.bridgeAgainBtn) {
     });
 }
 
-// Update relay button when fields change
+// Update relay buttons when fields change
 elements.messageHex.addEventListener('input', () => {
     elements.messageHex.classList.remove('field-computed');
     updateRelayButton();
+    updateEvmRelayButton();
 });
 elements.attestation.addEventListener('input', () => {
     elements.attestation.classList.remove('field-computed');
     elements.attestationStatus.classList.remove('field-computed');
     updateRelayButton();
+    updateEvmRelayButton();
 });
 elements.messageBase64.addEventListener('input', () => {
     elements.messageBase64.classList.remove('field-computed');
@@ -2128,6 +2594,11 @@ if (sections.relay) sections.relay.classList.add('card-collapsed');
 
 // Initialize button states
 updatePhantomButtonText();
+
+// Initialize destination chain from relay dropdown (default: solana)
+if (elements.relayDestChain) {
+    setDestChain(elements.relayDestChain.value);
+}
 
 log('CCTP Relayer initialized. Use the lookup above or paste a Noble tx hash to begin.', 'info');
 
