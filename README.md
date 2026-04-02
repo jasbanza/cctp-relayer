@@ -1,8 +1,12 @@
-# CCTP Relayer - Noble to Solana
+# CCTP Relayer - Noble to Solana & EVM
 
-**Work in progress.** This tool is currently focused on **manual recovery of USDC transfers from Noble (Cosmos) to Solana** using Circle's Cross-Chain Transfer Protocol (CCTP). Other chains and flows are not supported yet. Should you want other recoveries e.g. EVM, [Buy me a coffee and pop me a message here](https://buymeacoffee.com/jasbanza).
+> **Note:** This tool uses **CCTP V1 (Legacy)**. Circle is [deprecating V1](https://developers.circle.com/cctp/migration-from-v1-to-v2) in favour of CCTP V2, with phase-out beginning July 2026. V1 remains fully functional until then, but a migration to V2 will be needed in the future.
 
-This is an independent, community-built tool and is **not affiliated with or endorsed by Circle, Solana, Phantom, or any other referenced project.**
+A community-built tool for **recovering and sending USDC transfers from Noble (Cosmos)** using Circle's Cross-Chain Transfer Protocol (CCTP V1). Supports relaying to **Solana** and all major **EVM chains**: Ethereum, Avalanche, OP Mainnet, Arbitrum, Base, and Polygon PoS.
+
+[Buy me a coffee](https://buymeacoffee.com/jasbanza)
+
+This is an independent, community-built tool and is **not affiliated with or endorsed by Circle, Solana, Phantom, MetaMask, or any other referenced project.**
 
 ## Live deployments
 
@@ -11,26 +15,37 @@ This is an independent, community-built tool and is **not affiliated with or end
 
 ## Features
 
-- Fetch Noble transaction details and extract CCTP message
-- Convert message from Base64 to Hex
-- Compute keccak256 message hash
-- Fetch attestation from Circle's API
-- Connect Phantom wallet
-- Build and send `receiveMessage` transaction on Solana
+- **Recover transfers**: Fetch Noble transaction details, extract the CCTP message, and relay to the destination chain
+- **Send USDC**: Burn USDC on Noble and prepare a CCTP transfer to any supported destination
+- **Lookup pending transfers**: Search for in-flight transfers by destination address
+- **Multi-chain support**: Relay to Solana (Phantom) or any EVM chain (MetaMask / injected wallet)
+- **Auto-detection**: Destination chain is detected automatically from the CCTP message
+- Compute keccak256 message hash and fetch Circle attestation
 - All fields are editable for power users
 - External tool links for manual fallback
 
 ## Usage
 
-### Option 1: Full Flow
+### Recover a Transfer
 
 1. Enter your Noble transaction hash
 2. Click "Fetch TX" to retrieve the message data (the tool will auto-convert to hex, compute the hash, and fetch the attestation)
 3. Wait until the attestation status shows `complete`
-4. Connect your Phantom wallet
-5. Click "Relay to Solana"
+4. The destination chain is detected automatically — connect the appropriate wallet:
+   - **Solana**: Connect Phantom wallet, then click "Relay to Solana"
+   - **EVM chains**: Connect MetaMask (or any injected wallet), then click "Relay to [Chain]"
 
-### Option 2: Manual Entry
+### Send USDC from Noble
+
+1. Connect your Keplr wallet
+2. Select the destination chain and enter the recipient address
+3. Enter the amount and send
+
+### Lookup Pending Transfers
+
+Enter a destination address (Solana or EVM) to search for in-flight CCTP transfers waiting to be relayed.
+
+### Manual Entry
 
 If you already have any intermediate values (message hash, attestation, etc.), you can paste them directly into the corresponding fields.
 
@@ -43,9 +58,11 @@ cctp-relayer/
 │   ├── config.js           # Allowed origins config
 │   └── relay.js            # POST /api/relay (proxies Solana RPC)
 ├── public/                 # Static website files
-│   ├── app.js
+│   ├── app.js              # Main application logic (all chains)
 │   ├── index.html
 │   └── styles.css
+├── .github/workflows/      # CI/CD
+│   └── deploy-gh-pages.yml # Auto-deploy to GitHub Pages
 ├── .gitignore
 ├── package.json
 └── README.md
@@ -90,6 +107,8 @@ All configuration values can be edited in the UI:
 | MessageTransmitter | `CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd` | Solana CCTP program |
 | TokenMessengerMinter | `CCTPiPYPc6AsJuwueEnWgSgucamXDZwBd53dQ11YiKX3` | Solana CCTP program |
 
+EVM chain contract addresses (MessageTransmitter, TokenMessenger) are auto-configured based on the selected destination chain.
+
 ## Domain IDs
 
 | Chain | Domain ID |
@@ -107,20 +126,23 @@ All configuration values can be edited in the UI:
 
 If any step in the UI fails, you can use these external tools:
 
-### Step 3: Source Transaction
+### Source Transaction
 - [Mintscan Noble Explorer](https://www.mintscan.io/noble) - View Noble transactions
 - [Noble LCD API](https://noble-api.polkachu.com/cosmos/tx/v1beta1/txs/) - Query transactions directly
 - [Base64 to Hex Converter](https://base64.guru/converter/decode/hex) - Convert message encoding
 
-### Step 4: Attestation
+### Attestation
 - [Keccak256 Hash Tool](https://emn178.github.io/online-tools/keccak_256.html) - Compute message hash (use hex input)
 - [Circle Attestation API](https://iris-api.circle.com/v1/attestations/) - Fetch attestation directly
 - [Message Format Docs](https://developers.circle.com/cctp/message-format) - Understand CCTP message structure
 
-### Step 5: Relay
+### Relay
 - [Phantom Wallet](https://phantom.app/) - Solana wallet
+- [MetaMask](https://metamask.io/) - EVM wallet
 - [Solscan Explorer](https://solscan.io/) - View Solana transactions
-- [CCTP Solana Contracts](https://github.com/circlefin/solana-cctp-contracts) - Source code reference
+- [Etherscan](https://etherscan.io/), [Basescan](https://basescan.org/), [Arbiscan](https://arbiscan.io/) - View EVM transactions
+- [CCTP Solana Contracts](https://github.com/circlefin/solana-cctp-contracts) - Solana source code reference
+- [EVM CCTP Contracts](https://learn.circle.com/cctp/v1/evm-smart-contracts) - EVM contract addresses
 
 ## Troubleshooting
 
@@ -135,7 +157,8 @@ If the Circle attestation API fails due to CORS, you can:
 Check that:
 - The attestation status is "complete"
 - The message hasn't already been relayed (nonce already used)
-- Your wallet has enough SOL for transaction fees
+- Your wallet has enough native tokens for gas (SOL for Solana, ETH for Ethereum/Base/Arbitrum/OP, MATIC for Polygon, AVAX for Avalanche)
+- For EVM relays, your wallet is connected to the correct network (the app will prompt to switch)
 
 ### Message Not Found in Transaction
 
