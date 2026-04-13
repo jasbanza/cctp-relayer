@@ -772,6 +772,24 @@ function extractDestCaller(messageHex) {
     }
 }
 
+// Extract the mintRecipient from the CCTP message body.
+// Body starts at header offset 116; mintRecipient is at body+4+32 = offset 152, 32 bytes.
+// For EVM the 20-byte address sits in the last 20 bytes; for Solana it is a full 32-byte pubkey.
+function extractMintRecipientFromMessage(messageHex, isEvm) {
+    try {
+        const bytes = hexToBytes(messageHex);
+        if (bytes.length < 184) return null;
+        const recipientBytes = bytes.slice(152, 184);
+        if (isEvm) {
+            const addrBytes = recipientBytes.slice(12, 32);
+            return '0x' + Array.from(addrBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        return new PublicKey(recipientBytes).toBase58();
+    } catch (e) {
+        return null;
+    }
+}
+
 function getApiBase() {
     if (!elements.apiBase) return '';
     const raw = elements.apiBase.value.trim();
@@ -2053,8 +2071,9 @@ async function relayToSolana() {
     // Show modal if not already showing (for manual relay)
     const modalVisible = elements.progressModal && elements.progressModal.style.display === 'flex';
     if (!modalVisible) {
-        // For manual relay, show a simplified modal starting at step 3
-        const destAddress = elements.solanaDestAddress?.value?.trim() || walletPublicKey.toBase58();
+        const destAddress = extractMintRecipientFromMessage(messageHex, false)
+            || elements.solanaDestAddress?.value?.trim()
+            || walletPublicKey.toBase58();
         showProgressModal(destAddress, 0);
         updateModalStep(1, 'completed', 'Completed', 'Noble burn transaction (external)');
         updateModalStep(2, 'completed', 'Completed', 'Circle attestation verified');
@@ -2376,7 +2395,8 @@ async function relayToEvm() {
 
     const modalVisible = elements.progressModal && elements.progressModal.style.display === 'flex';
     if (!modalVisible) {
-        showProgressModal(evmAddress, 0);
+        const receiver = extractMintRecipientFromMessage(messageHex, true) || evmAddress;
+        showProgressModal(receiver, 0);
         updateModalStep(1, 'completed', 'Completed', 'Noble burn transaction (external)');
         updateModalStep(2, 'completed', 'Completed', 'Circle attestation verified');
     }
