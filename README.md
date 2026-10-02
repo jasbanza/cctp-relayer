@@ -1,4 +1,4 @@
-# CCTP Relayer - Noble to Solana & EVM
+# CCTP Relayer (old) - Noble to Solana & EVM
 
 > **Note:** This tool uses **CCTP V1 (Legacy)**. Circle is [deprecating V1](https://developers.circle.com/cctp/migration-from-v1-to-v2) in favour of CCTP V2, with phase-out beginning July 2026. V1 remains fully functional until then, but a migration to V2 will be needed in the future.
 
